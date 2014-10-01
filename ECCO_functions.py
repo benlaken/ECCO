@@ -14,6 +14,17 @@ import matplotlib.pyplot as plt
 #
 #     ROUTINES FOR READING DATA
 #
+def Height_CORDEX():
+    '''Obtain the orographic height of the CORDEX data from a
+    metadata file.
+    '''
+    NCfpth = 'Metadata/orog_EUR-11_ECMWF-ERAINT_evaluation_r1i1p1_KNMI-RACMO22E_v1_fx.nc'
+    #print 'Reading file:',NCfpth
+    tmp = Dataset(NCfpth,'r')          # Use NetCDF4 to read the file
+    tmp.close                          # Close connection to the file
+    orog = tmp.variables['orog']
+    return orog
+
 def Read_Lakes(file_in):
     '''Purpose - Use Json module to read GeoJSON Lake data
     Input   - File name including path (string)
@@ -35,8 +46,8 @@ def Read_Lakes(file_in):
 
 
 def Tmp_CORDEX_Read():
-    '''Temporay way to read the CORDEX data, while I am testing the software and getting the remote
-    access working still.
+    '''Temporay way to read the CORDEX data, while I am testing the 
+    software and getting the remote access working still.
     '''
     #cordex_dlist = 'file_list.txt'    # A list of CORDEX data held locally (path and file name)
     #with open(cordex_dlist) as f:
@@ -78,11 +89,14 @@ def Tmp_CORDEX_Read():
 #
 
 def Calc_Coordinates(lon_2transform,lat_2transform):
-    ''' Returns lat lon coordinates on a polar rotated sphere, from the input of the North
-    Pole longitude, and North Pole latitude (that is the rotated position of the pole),
-    and the lon and lat which you wish to transform (as two speperate floating point values).
-    Note   - Currently this has the CORDEX EUR-11 pole shift hardcoded into the routine, as 
-    lo_polo = 198. (Cartesian Lontidue of N. Pole Shift), and la_polo = 39.25 (Latitude of N.Pole shift)
+    ''' Returns lat lon coordinates on a polar rotated sphere, from
+    the input of the North Pole longitude, and North Pole latitude
+    (that is the rotated position of the pole), and the lon and lat
+    which you wish to transform (as two speperate floating point
+    values).
+    Note   - Currently this has the CORDEX EUR-11 pole shift
+    hardcoded into the routine, as lo_polo = 198. (Cartesian Lontidue
+    of N. Pole Shift), and la_polo = 39.25 (Latitude of N.Pole shift)
     '''
     lo = lon_2transform
     la = lat_2transform
@@ -108,11 +122,14 @@ def Calc_Coordinates(lon_2transform,lat_2transform):
 
 
 def Closest(array, value):
-    '''Purpose    -  Functions like the IDL routine CLOSEST. Essentially just returns
-    the value of an array closest to a specified value.
+    '''Purpose    -  Functions like the IDL routine CLOSEST.
+    Essentially just returns the value of an array closest
+    to a specified value.
     Input    -  array: a np.array
-             -  value: the value to which you are looking for the closest match to
-    Output   - Returns an integer value index to the input array, of the data point
+             -  value: the value to which you are looking
+                for the closest match to
+    Output   - Returns an integer value index to the input array, of
+               the data point
                most closely corresponding to the input value.
     '''
     y = [0] * len(array)            # Declare a list to hold (array - value) numbers.
@@ -127,16 +144,19 @@ def Closest(array, value):
 
 
 def EqArea(verts):
-    '''Purpose - Take gridded data and, using the assumption of a spherical earth, re-project it to
-    a spherical coordinate system.
+    '''Purpose - Take gridded data and, using the assumption of a 
+    spherical earth, re-project it to a spherical coordinate system.
     Input   - The Matplolib.Path.Path object vertexes
     Output  - x,y coordinates projected onto a sphere
-    Notes   - Solution from stackoverflow.com/questions/4681737/how-to-calculate-the-area-of-a-polygon-
-    on-the-earths-surface-using-python
-    By multiplying the latitude by the length of one degree of latitude, and the longitude by the length of
-    a degree of latitude and the cosine of the latitude. Then, calculate the area of an arbitrary polygon in a plane.
+    Notes   - Solution from stackoverflow.com/questions/4681737/how
+              -to-calculate-the-area-of-a-polygon-
+              on-the-earths-surface-using-python
+    By multiplying the latitude by the length of one degree of 
+    latitude, and the longitude by the length of
+    a degree of latitude and the cosine of the latitude. Then, 
+    calculate the area of an arbitrary polygon in a plane.
 '''
-    earth_radius = 6367.4447             # Earth avg. radius (km) from Wolfram Alpha
+    earth_radius = 6367.4447 # Earth avg. radius (km) Wolfram Alpha
     lat_dist = pi * earth_radius / 180.0  
     eqout =[]
     for n,i in enumerate(verts):
@@ -149,7 +169,7 @@ def EqArea(verts):
 
 
 def Get_LatLonLim(xypath):
-    '''Purpose - Find the bounding (i.e. max/min) lat/lons of a given lake.
+    '''Purpose - Find the bounding (i.e. max/min) lat/lon of a lake
     Input   - Path.verticies of Lake
     Output  - x[max,min],y[max,min]
     '''
@@ -162,13 +182,15 @@ def Get_LatLonLim(xypath):
 
 
 def Gen_FileName(pth,lname,drange,ext):
-    '''Purpose   - This is needed to use the unicode lake names to generate a string
-    used as a file name and folder path to save output files. Idea is to modify this as needed.
+    '''Purpose   - This is needed to use the unicode lake names to 
+    generate a string used as a file name and folder path to save 
+    output files. Idea is to modify this as needed.
     
     Inputs    - lname: Lake_name[n] unicode name
               - pth: path of where the file should go
               - ext: extention type of the desired file
-    Outputs   - filename: A string with the path, filename, and type all together. 
+    Outputs   - filename: A string with the path, filename, and type 
+                all together. 
     ''' 
     #pth = '/uio/kant/geo-metos-u1/blaken/Work/Python/ECCO/Outputs/'
     #ext = '.pdf'
@@ -177,7 +199,8 @@ def Gen_FileName(pth,lname,drange,ext):
 
 
 def Gen_FName_Head(long_name):
-    '''Purpose   - Set the string to start the file names with (should be the variable)
+    '''Purpose   - Set the string to start the file names with 
+    (these strings should be the variable)
     Input    - clim_dat.long_name (from the NetCDF data)
     Output   - fnm_head: a short string to indicate the variable 
     '''
@@ -187,14 +210,67 @@ def Gen_FName_Head(long_name):
     return fnm_head
 
 
+def Orographic_Adjustment(weight_mask,orog,lake_altitude,clim_dat,chatty):
+    '''Purpose    - Reads in the 2D weight mask (from Pixel_Weights 
+    function) and the trimmed data from TrimToLake and returns a
+    weighted mean. This should be iterated for each time-step.
+    Input    - weight_mask: Pixel weights
+             - sub_clim: subset of the climate data (one time slice,
+               lat lon subset)
+             - chatty: a true or false statement, if true, it will
+               print some info on the weighting process.
+    Output   - val_out: the weighted mean value of height diffrence
+             - offset : the calculated paramater offset (e.g. surface
+               air temp) calculated for each pixel
+                        individually, weighted into a single value.
+    '''
+    type_of_data = clim_dat.standard_name
+    ELR = 6.49/1000    # Environmental lapse rate of 6.49K per 1,000m
+    offset_made = False   # Initialise a boolean test as False
+    aaa = np.where(weight_mask > 0.000)   # Index where weights exist
+    if (len(aaa[0]) == 0):
+        print 'Error: no lake cover identified! :('
+    if (chatty == True):
+        print 'Lake covers',len(weight_mask[aaa]),' pixels'
+        print 'Actual weight values are :',weight_mask[aaa]
+        print 'GeoJSON height of lake (m):',lake_altitude
+        print 'Height of individual pixels in data (m) is:',orog[aaa]
+        print 'Cum. sum of pixel weights (should end as 1.0):',cumsum(weight_mask[aaa])
+    val_out = 0
+    tmp_diffs =[]
+    offset = 0
+    for n in xrange(len(aaa[0])):
+        val_out = val_out + weight_mask[aaa[0][n],aaa[1][n]] * orog[aaa[0][n],aaa[1][n]]
+        
+    for n in xrange(len(aaa[0])):  # For every lake pixel, calc height adjustment
+        if type_of_data == 'air_temperature':
+            #print 'found air temp data'
+            #print 'blah2',(orog[aaa[0][n],aaa[1][n]]- lake_altitude) * ELR
+            tmp_diffs.append((orog[aaa[0][n],aaa[1][n]]- lake_altitude) * ELR)
+            offset_made =True
+
+    if offset_made == True:
+        for i,n in enumerate(xrange(len(aaa[0]))):
+            offset = offset + weight_mask[aaa[0][n],aaa[1][n]] * tmp_diffs[i]
+            #print i, tmp_diffs[i],weight_mask[aaa[0][n],aaa[1][n]],offset
+    else:
+        offset = 0.0   # Set the offset to nothing if no offset has been calculated
+        
+    return val_out, offset
+
+
 def Path_Make(coord):
-    '''Purpose  - Create a Polygon from the Lake vectors, as a Matplotlib.Path.Path object, and nothing else.
-    Input    - Lake coordinate data as an x,y list (from the GeoJSON file).
+    '''Purpose  - Create a Polygon from the Lake vectors, as a 
+    Matplotlib.Path.Path object, and nothing else.
+    Input    - Lake coordinate data as an x,y list (from GeoJSON).
     Output   - Path_out (A Matplotlib.Path object) 
     Requires - Matplotlib.Path import Path
-    Notes   - The way the lake addressing goes is Lake[0][0][0] where the first 0 is the individual lake.
-    Lake[0][0][:] will give you every x,y element. Lake[0][0][0][0] will give the first x-element of the first lake.
-    Lake[0][0][0][1] will give the first y-element etc.
+    Notes    - The way the lake addressing goes: Lake[0][0][0] where
+               the first 0 is the individual lake.
+               Lake[0][0][:] will give you every x,y element. 
+               Lake[0][0][0][0] will give the first x-element of the
+               first lake. Lake[0][0][0][1] will give the first 
+               y-element etc.
     '''
     verts =[] ; codes=[]
     pth_ln = int(len(coord) - 1) 
@@ -212,14 +288,20 @@ def Path_Make(coord):
 
 
 def Path_Reproj(path_in,INV):
-    '''This program reprojects a path object from cartesian lat lon to Spherical reprojected coordinates.
-    Note, this could easily be changed in the future to use diffrent coordinates as requirements of model input changes.
+    '''This program reprojects a path object from cartesian lat lon 
+    to Spherical reprojected coordinates.
+    Note, this could easily be changed in the future to use diffrent
+    coordinates as requirements of model input changes.
     Currently works on Lat Lon to rotated Lat Lon of EUR-11 model.
     Input    -   Lake Path object
-             -   change_proj, a projection object from Get_Proj() to transform coordinates.
-             -   INV keyword as a boolean. If false the transformation goes forwards
-                 meaning cartesian lon/lat are converted by the reprojection. If it
-                 is true, however, the tranformation goes in reverse. Changing reprojected data back to cartesian data.
+             -   change_proj, a projection object from Get_Proj() to
+                 transform coordinates.
+             -   INV keyword as a boolean. If false the 
+                 transformation goes forwards
+                 meaning cartesian lon/lat are converted by the 
+                 reprojection. If it
+                 is true, however, the tranformation goes in reverse.
+                 Changing reprojected data back to cartesian data.
     Output   -   Transformed Path object. Note the codes are intact.        
     '''
     verts =[] ; codes=[] 
@@ -228,11 +310,10 @@ def Path_Reproj(path_in,INV):
         if (INV == False):
             rx,ry = Calc_Coordinates(n[0],n[1])
         if (INV == True):
-            #rx,ry =  Change_Proj(n[0],n[1],inverse=True)  # Transform from rlat/rlon to lat/lon
-            print 'Still have to add the inverse projection functionaility!'
+            print 'Still must add inverse projection functionaility!'
         tmp_rverts = [rx,ry]
-        verts.append(tmp_rverts)                          # Use reprojected verticies
-        codes.append(path_in.codes[i])                    # Use existing path codes already set
+        verts.append(tmp_rverts)         # Use reprojected verticies
+        codes.append(path_in.codes[i])   # Use path codes already set
     path_out = Path(verts, codes)
     return path_out
 
@@ -241,25 +322,32 @@ def Path_Reproj(path_in,INV):
 
 def Pixel_Weights(lake_in, datin,lat_atts,lon_atts):
     '''
-    Purpose - Provides a 2D array matching the input array, which has the weights of pixels
-                to calc. lake mean
+    Purpose - Provides a 2D array matching the input array, which has
+    the weights of pixels to calc. lake mean
     
     Input   - lake_in: A Path object
-            - datin: A 2D array of values: either real data, or fake data generated by Gen_Test_Dat()
+            - datin: A 2D array of values: either real data, or fake 
+              data generated by Gen_Test_Dat()
             - Lat subscripts: list of y values in rotated coordinates
             - Lon subscripts: list of x values in rotated coordinates
             
-    Output  - pix_weights: A 2D array matching the input data of the fractional area of lake per pixel
+    Output  - pix_weights: A 2D array matching the input data of the 
+              fractional area of lake per pixel
     
-    Notes   - For each grid cell of the provided 2D data the individual bounding box of each pixel is calculated
+    Notes   - For each grid cell of the provided 2D data the 
+              individual bounding box of each pixel is calculated
                 as a bounding box object (Matplotlib.Transform.Bbox).
-              Using the intersects_bbox() function, a logic test determines if any vectors of the
-              Lake's path are within the bounding box. If the condition is false (no lake within pixel),
-              the value of the mask is set to 0.0. If the condition is true (lake within pixel), the
-              fractional area of the lake polygon within the polygon within the pixel is calculated.
-              This requires the area of the lake polygon within the pixel (in km^2) is calculated, and
-              divided by the area of the total lake (also in km^2). 
-              The areas are calculated by the custom functions EqArea() and PolyArea2D().
+              Using the intersects_bbox() function, a logic test 
+              determines if any vectors of the Lake's path are within
+              the bounding box. If the condition is false (no lake 
+              within pixel), the value of the mask is set to 0.0. 
+              If the condition is true (lake within pixel), the
+              fractional area of the lake polygon within the polygon
+              within the pixel is calculated. This requires the area 
+              of the lake polygon within the pixel (in km^2) is 
+              calculated, and divided by the area of the total lake
+              (also in km^2). The areas are calculated by the custom
+              functions EqArea() and PolyArea2D().
     '''
     lout = lake_in
     pix_weights = np.zeros(np.shape(datin))
@@ -269,10 +357,10 @@ def Pixel_Weights(lake_in, datin,lat_atts,lon_atts):
     xvar = lon_atts[0] ; yvar= lat_atts[0]       # Initialize the looping indexes to first positions
     for x in xrange(len(lon_atts)):
         if(x == 0):  
-            x_ll = lon_atts[0]                   # ..then set the lower left corner to be the first lon val.
-            x_ur = lonstep + x_ll                # and the upper right, to be the x_ll + increment
-        if(x > 0):                               # If it is already in the loop, use the older x_ll, and x_ur
-            x_ll = x_ur                          # to continue calculating the bounding box area. 
+            x_ll = lon_atts[0]            # ..then set the lower left corner to be the first lon val.
+            x_ur = lonstep + x_ll         # and the upper right, to be the x_ll + increment
+        if(x > 0):                        # If it is already in the loop, use the older x_ll, and x_ur
+            x_ll = x_ur                   # to continue calculating the bounding box area. 
             x_ur = x_ll + lonstep    
         for y in xrange(len(lat_atts)):
             if(y == 0):
@@ -285,23 +373,25 @@ def Pixel_Weights(lake_in, datin,lat_atts,lon_atts):
             tmpbb = Bbox(lims)
             test = lout.intersects_bbox(tmpbb)
             if (test == 1):                         # If Lake within the Bbox test will be 1 (no lake, test = 0)
-                cnt = cnt + 1                     # Counter is just for testing.
-                #pix_weights[y,x] = 0.0            # For pixels where Lake is, calc. and write the frac area (%)
+                cnt = cnt + 1                       # Counter is just for testing.
+                #pix_weights[y,x] = 0.0             # For pixels where Lake is, calc. and write the frac area (%)
                 sub_lout =[] ; area_sub = []
                 sub_lout = lout.clip_to_bbox(tmpbb,inside ='True')
                 area_sub = Poly_Area2D(EqArea(sub_lout.vertices))
                 lkarea = Poly_Area2D(EqArea(lout.vertices))
-                pix_weights[y,x]= float(area_sub)/float(lkarea)         # The fractional area (0-1.0) of lake within a given pixel
+                pix_weights[y,x]= float(area_sub)/float(lkarea)   # Fractional area (0-1.0) of lake within a given pixel
     return pix_weights
 
 
 
 def Poly_Area2D(poly):
-    '''Purpose - This function implements Green's Theorem to calculate to find the
-    area of a polygon in a 2D co-ordinate system.   
+    '''Purpose - This function implements Green's Theorem to
+    calculate area of a polygon in a 2D co-ordinate system.
     Input   - A polygon, as the verticies of a Matplotlib.Path 
-    Notes   - More info at http://code.activestate.com/recipes/578275-2d-polygon-area
-    Join this function with EqArea function to find the area of a lake in km^2.
+    Notes   - More info at http://code.activestate.com/recipes/
+                           578275-2d-polygon-area
+    Join this function with EqArea function to find the area of a
+    lake in km^2.
     Example - area = Poly_area2D(EqArea(A_Lake_Path.vertices))
     '''
     total = 0.0
@@ -314,15 +404,18 @@ def Poly_Area2D(poly):
 
 
 def Plot_LakeAndData_Save(lake_in,cdat,rlat,rlon,zoom):
-    ''' Like Show_LakeAndData(), but this one outputs the plot object without displaying it to the screen.
-    Creates a nice plot for the user to check the lake is in the right place on the data. Specify a zoom to
-    change perspective as required.
+    ''' Like Show_LakeAndData(), but this one outputs the plot object
+    without displaying it to the screen. Creates a nice plot for the
+    user to check the lake is in the right place on the data. Specify
+    a zoom to change perspective as required.
     Input   - lake_in : a Path object containing a lake
             - cdat: a 2D array of lat/lon holding climate variables
             - rlon and rlat : rotated lon/lat vectors of cdat
-            - zoom : a positive floating point value speciying the area in decimal degrees
-                    to plot around the lake. You can use this to zoom on the lake!
-    Output  - A plot object of the lake overlaid on the data, ready to save to file.
+            - zoom : a positive floating point value speciying the
+              area in decimal degrees to plot around the lake.You can
+              use this to zoom on the lake!
+    Output  - A plot object of the lake overlaid on the data, ready
+              to save to file.
     '''
     if ((zoom < 0) | (zoom != zoom)):
         zoom = 0.
@@ -342,7 +435,8 @@ def Plot_LakeAndData_Save(lake_in,cdat,rlat,rlon,zoom):
     return fig2
 
 def Preview_Lake(lake_in):
-    '''Purpose   - Plot to screen a specified lake from a path object. Only meant for preview purposes.
+    '''Purpose   - Plot to screen a specified lake from path object.
+    Only meant for preview purposes.
     Input     - Matplotlib.Path object
     '''
     xtmp=[] ; ytmp=[]
@@ -386,13 +480,15 @@ def Preview_Weights(lake_in,pix_weights,lat_atts,lon_atts):
     return
 
 def Show_LakeAndData(lake_in,cdat,rlat,rlon,zoom):
-    ''' This creates a nice plot for the user to check the lake is in the right place on the data. Specify a zoom to
-    change perspective as required.
+    ''' This creates a nice plot for the user to check the lake is in
+    the right place on the data. Specify a zoom to change perspective
+    as required.
     Input   - lake_in : a Path object containing a lake
             - cdat: a 2D array of lat/lon holding climate variables
             - rlon and rlat : rotated lon/lat vectors of cdat
-            - zoom : a positive floating point value speciying the area in decimal degrees
-                    to plot around the lake. You can use this to zoom on the lake!
+            - zoom : a positive floating point value speciying the 
+            area in decimal degrees to plot around the lake. You can
+            use this to zoom on the lake!
     Output  - A nice plot of the lake overlaid on the data
     '''
     if ((zoom < 0) | (zoom != zoom)):
@@ -413,28 +509,40 @@ def Show_LakeAndData(lake_in,cdat,rlat,rlon,zoom):
     return
 
 def TrimToLake(lake_in,Cdat,rlat,rlon,off,show):
-    ''' Purpose   - To go from the full CORDEX lat lon array (one time slice), to a small np.array
-        subset over the immediate pixels surrounding the lake (with a few eitherside). This will speed up the
-        execution of the pixel weight calculation code.
+    ''' Purpose   - To go from the full CORDEX lat lon array (one
+        time slice), to a small np.array subset over the immediate
+        pixels surrounding the lake (with a few eitherside). This
+        will speed up the execution of the pixel weight calculation
+        code.
         
     Input     -  lake_in : A Path object, holding the lake data
-              -  Cdat : Climate Data, as a 2D array (lat,lon) sliced from the cordex array
+              -  Cdat : Climate Data, as a 2D array (lat,lon) sliced
+                 from the cordex array
               -  rlat : Rotated Latitude attributes of the Cdat array
               -  rlon : Rotated Lontiude attributes of the Cdat array
-              -  off  : an offset value (in pixels) to expand the area around the lake. By default, if the offset
-                        enterd is less than 3, it will be set to 3 pixels (as from testing this prevents errors).
-              -  show : A keyword set to either True or False depending on if you want to see the result
-                        plotted to the screen or not.
+              -  off  : an offset value (in pixels) to expand the 
+                 area around the lake. By default, if the offset
+                 enterd is less than 3, it will be set to 3 pixels
+                 (as from testing this prevents errors).
+              -  show : A keyword set to either True or False 
+                 depending on if you want to see the result plotted
+                 to the screen or not.
                         
-    Output    -  data_sub : Np.Array subset of Cdat. This will be used to create a weighted mask.
+    Output    -  data_sub : Np.Array subset of Cdat. This will be
+                 used to create a weighted mask.
               -  rlat_subs: subset of the rotated latitude
               -  rlon_subs: subset of the rotated lontiude
               
-    Example   - grid_subset,subset_rlats,subset_rlons = Subset_ClimDat(lake_in,climdata[0,:,:],rlat,rlon,show=True)
+    Example   - grid_subset,subset_rlats,subset_rlons = 
+                Subset_ClimDat(lake_in,climdata[0,:,:],rlat,rlon,
+                show=True)
     
-    Notes     - The zoom2 factor, is a bit arbitrary, is is designed to include several pixels comfortably either side
-                of the lake. While this may be a waste, and perhaps could be cut, I perfer to leave it in, as the lakes
-                have some unusual shapes, and leaving pixels to work with seems like a good idea for now.
+    Notes     - The zoom2 factor, is a bit arbitrary, is is designed
+                to include several pixels comfortably either side
+                of the lake. While this may be a waste, and perhaps
+                could be cut, I perfer to leave it in, as the lakes
+                have some unusual shapes, and leaving pixels to work
+                with seems like a good idea for now.
     '''
     if ((off < 3) | (off != off)):
         off = 3
@@ -462,15 +570,17 @@ def TrimToLake(lake_in,Cdat,rlat,rlon,off,show):
 
 
 def Update_Progress(progress):
-    '''A nice solution to progress bars, all contained here (no need to load packages). 
-    Update_Progress() : Displays or updates a console progress bar
-    Accepts a float between 0 and 1. Any int will be converted to a float.
-    A value under 0 represents a 'halt'.
+    '''A nice solution to progress bars, all contained here (no need
+    to load packages). Update_Progress() : Displays or updates a
+    console progress bar Accepts a float between 0 and 1. Any int
+    will be converted to a float. A value under 0 represents a 'halt'
     A value at 1 or bigger represents 100%
-    Took this code from http://stackoverflow.com/questions/3160699/python-progress-bar
-    Testing shows the p-bar doesn't slow programs (tests showed +0.2 sec in loops of n=77)
+    Took this code from http://stackoverflow.com/questions/3160699/
+                        python-progress-bar
+    Testing shows the p-bar doesn't slow programs (tests showed +0.2
+    sec in loops of n=77)
     '''
-    barLength = 40 # Modify this to change the length of the progress bar
+    barLength = 40 # Modify this to change the length of the p-bar
     status = ""
     if isinstance(progress, int):
         progress = float(progress)
@@ -490,14 +600,17 @@ def Update_Progress(progress):
     return
 
 def Weighted_Mean(weight_mask,sub_clim,chatty):
-    '''Purpose    - Reads in the 2D weight mask (from Pixel_Weights function) and the trimmed data from TrimToLake
-    and returns a weighted mean. This should be iterated for each time-step.
+    '''Purpose    - Reads in the 2D weight mask (from Pixel_Weights
+    function) and the trimmed data from TrimToLake and returns a
+    weighted mean. This should be iterated for each time-step.
     Input    - weight_mask: Pixel weights
-             - sub_clim: subset of the climate data (one time slice, lat lon subset)
-             - chatty: a true or false statement, if true, it will print some info on the weighting process.
+             - sub_clim: subset of the climate data (one time slice,
+               lat lon subset)
+             - chatty: a true or false statement, if true, it will 
+               print some info on the weighting process.
     Output   - val_out: the weighted mean value
     '''
-    aaa = np.where(weight_mask > 0.000)      # Index where weights exist
+    aaa = np.where(weight_mask > 0.000)   # Indx where weights exist
     if (len(aaa[0]) == 0):
         print 'Error: no lake cover identified! :('
     if (chatty == True):
@@ -515,46 +628,67 @@ def Weighted_Mean(weight_mask,sub_clim,chatty):
 #             READY TO BE RUN USING MUTLITHREADDING MODULE
 #
 def MT_Means_Over_Lake(lake_num):
-    ''' This function combines all the routines of the function file, to create time series
-    (or images) of the individual lakes,with data overlain. It outputs to a path created
-    within the function, unuqie to each lake.
-    This is ready to be run on parallalel processors (non-shared memory): each instance loads
-    its own version of the data.
-    Takes about 7min per lake (for one EUR-11 CORDEX file), and produces a 14kb text file
-    (5kb in gz format)- speed in on an approx 3GHz machine.
+    ''' This function combines all the routines of the function file,
+    to create time series (or images) of the individual lakes, with 
+    data overlain. It outputs to a path created within the function,
+    unuqie to each lake. This is ready to be run on parallalel 
+    processors (non-shared memory): each instance loads its own
+    version of the data. Takes about 7min per lake (for one EUR-11
+    CORDEX file), and produces a 14kb text file (5kb in gz format):
+    speed is on an approx 3GHz machine.
     '''
     num = lake_num
-    # As Multiprocessing does not use shared memory, I will need to load the data uniquley for each
+    # Load data - Note Multiprocessing does not use shared memory
     lake_data = 'Lakes/comsat_fetch.geojson'
-    lake_geometry, lake_id, lake_name,lake_path,lake_altitude,feno_lake_id = Read_Lakes(lake_data)
-    # Get Lake data
-    clim_dat,rlat,rlon,time,drange,dexp = Tmp_CORDEX_Read() # Temporary way of getting CORDEX data from a local file   
+    lake_geometry, lake_id, lake_name,lake_path,lake_altitude,\
+        feno_lake_id = Read_Lakes(lake_data)
+    clim_dat,rlat,rlon,time,drange,dexp = Tmp_CORDEX_Read()  
+    orog = Height_CORDEX()
     
-    
+    # Create Lake shapes and subset the CORDEX data
     lake_cart= Path_Make(lake_path[num][0][0][:])
     lake_rprj = Path_Reproj(lake_cart,False)             
-    sub_clim,sub_rlat,sub_rlon = TrimToLake(lake_rprj,clim_dat[0,:,:],rlat,rlon,off = 3, show = False)
+    sub_clim,sub_rlat,sub_rlon= TrimToLake(lake_rprj,\
+        clim_dat[0,:,:],rlat,rlon,off = 3, show = False)
     weight_mask = Pixel_Weights(lake_rprj,sub_clim,sub_rlat,sub_rlon)
    # print ' area=',Poly_Area2D(EqArea(lake_rprj.vertices)),'km^2'
 
-    fig_lake = Plot_LakeAndData_Save(lake_rprj,clim_dat[0,:,:],rlat,rlon,zoom=0.10)  #Test plot for the lake
-    out = '/uio/kant/geo-metos-u1/blaken/Work/Python/ECCO/Outputs/'
-    figname = Gen_FileName(out,lake_name[num],'fig','.pdf')         # Generate a file name from the lake name
-    fig_lake.savefig(figname,dpi=72)                          # Save the test plot
+    # The below two lines are where the height adjustment comes from
+    sub_orog,sub_rlat,sub_rlon = TrimToLake(lake_rprj,orog[:,:],\
+        rlat,rlon,off = 3, show = False)
+    hght,offset = Orographic_Adjustment(weight_mask,sub_orog,\
+        lake_altitude[num],clim_dat,chatty=False)
+   # print 'Weighted mean height of lake pixels and lake (m):',
+   # print hght,' vs ',lake_altitude[num]
+   # print 'Height diffrence between lake and EUR-11 pixels (m):',
+   # print lake_altitude[num]-hght
+   # print 'Offset to be applied (in Kelvin):',offset
 
+    # Plot out the lake shape for evaluation
+    fig_lake = Plot_LakeAndData_Save(lake_rprj,clim_dat[0,:,:],rlat,\
+                rlon,zoom=0.10)
+    out = 'Outputs/'
+    figname = Gen_FileName(out,lake_name[num],'fig','.pdf')
+    fig_lake.savefig(figname,dpi=72)
+
+    # Process the time-series
     tlist =[]
-    #for t in xrange(30):
+    #for t in xrange(30):   # Shorter, test time
     for t in xrange(len(time)):
-        sub_clim,sub_rlat,sub_rlon = TrimToLake(lake_rprj,clim_dat[t,:,:],rlat,rlon,off = 3, show = False)
+        sub_clim,sub_rlat,sub_rlon = TrimToLake(lake_rprj,\
+            clim_dat[t,:,:],rlat,rlon,off = 3, show = False)
         final_val = Weighted_Mean(weight_mask,sub_clim,chatty=False)
         tlist.append(final_val)
-        #print 'Timestep:',t, '  Weighted temperature =','%6.2f'%(final_val) #-272.15),'Deg C'
+        #print 'Timestep:',t, '  Weighted temperature =',
+        #print '%6.2f'%(final_val) #-272.15),'Deg C'
     
+    # Finally, generate a file name and output the time-series data
     fnm_head=Gen_FName_Head(clim_dat.long_name)
-    hcreate = 'Data = '+clim_dat.long_name+', time range of file = '+drange+' Model = '+dexp  
-         
-    out = '/uio/kant/geo-metos-u1/blaken/Work/Python/ECCO/Outputs/'+fnm_head
+    out = 'Outputs/'+fnm_head
+    hcreate = 'Height offset = '+ '%6.2f'%offset+'  Data = '+\
+        clim_dat.long_name+', time range of file = '+drange+\
+        ' Model = '+dexp
     txtfname = Gen_FileName(out,lake_name[num],drange,'.txt.gz')       
     np.savetxt(txtfname,tlist,fmt='%7.3f',newline='\n', header=hcreate)
-        
+
     return
