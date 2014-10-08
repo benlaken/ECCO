@@ -10,11 +10,3 @@ Workflow follows these stages:
 4. Identify corresponding climate data.
 
 
-Pull request practice
-=============
-
-to be deleted later. Hope you see that accepting pull request is
-easy. Cheers, K.
-
-PS was there any column width you use for these script files (*.py)?
-
