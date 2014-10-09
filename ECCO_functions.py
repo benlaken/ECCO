@@ -57,7 +57,7 @@ def Tmp_CORDEX_Read():
     #print cordex_files  # NB having some problem, CORDEX file names are too big for the module to read!
     # I have temporarily renamed tas_EUR-11_ICHEC-EC-EARTH_rcp45_r1i1p1_KNMI-RACMO22E_v1_day_20960101-21001231.nc
     # to tas_20960101-21001231.nc while i am testing...
-    NCfpth = '/uio/kant/geo-metos-u1/blaken/Data/CORDEX/tas_20960101-21001231.nc'
+    NCfpth = 'Data/CORDEX/tas_20960101-21001231.nc'
     #print 'Reading file:',NCfpth
     tmp = Dataset(NCfpth,'r')              # Use NetCDF4 to read the file
     tmp.close                              # Close the connection to the file 
@@ -78,7 +78,7 @@ def Tmp_CORDEX_Read():
     rlon = tmp.variables['rlon']
     time = tmp.variables['time']
     
-    drange = tmp.filepath()  # This is a unicode date range of the data stripped from the filename, pass it to the text
+    drange = NCfpth  # This is a unicode date range of the data stripped from the filename, pass it to the text
     drange = drange[-20:-3]   # files as part of their naming convention
     dexp = tmp.driving_experiment  # variable to hold experiment info
     return tas,rlat,rlon,time,drange,dexp
@@ -569,6 +569,68 @@ def TrimToLake(lake_in,Cdat,rlat,rlon,off,show):
     return data_sub,sub_rlat,sub_rlon
 
 
+def TrimToLake3D(lake_in,Cdat,rlat,rlon,off,show):
+    ''' Purpose   - To go from the full CORDEX lat lon array (one
+        time slice), to a small np.array subset over the immediate
+        pixels surrounding the lake (with a few eitherside). This
+        will speed up the execution of the pixel weight calculation
+        code.
+        
+    Input     -  lake_in : A Path object, holding the lake data
+              -  Cdat : Climate Data, as a 3D array (time, lat, lon) sliced
+                 from the cordex array
+              -  rlat : Rotated Latitude attributes of the Cdat array
+              -  rlon : Rotated Lontiude attributes of the Cdat array
+              -  off  : an offset value (in pixels) to expand the 
+                 area around the lake. By default, if the offset
+                 enterd is less than 3, it will be set to 3 pixels
+                 (as from testing this prevents errors).
+              -  show : A keyword set to either True or False 
+                 depending on if you want to see the result plotted
+                 to the screen or not.
+                        
+    Output    -  data_sub : Np.Array subset of Cdat. This will be
+                 used to create a weighted mask.
+              -  rlat_subs: subset of the rotated latitude
+              -  rlon_subs: subset of the rotated lontiude
+              
+    Example   - grid_subset,subset_rlats,subset_rlons = 
+                Subset_ClimDat(lake_in,climdata[:,:,:],rlat,rlon,
+                show=True)
+    
+    Notes     - The zoom2 factor, is a bit arbitrary, is is designed
+                to include several pixels comfortably either side
+                of the lake. While this may be a waste, and perhaps
+                could be cut, I perfer to leave it in, as the lakes
+                have some unusual shapes, and leaving pixels to work
+                with seems like a good idea for now.
+    '''
+    if ((off < 3) | (off != off)):
+        off = 3
+    xxx,yyy = Get_LatLonLim(lake_in.vertices)  # Get bounds of a lake
+    ymx = (Closest(rlat,yyy[0])) + off         # Gather the max and minimum range
+    ymn = (Closest(rlat,yyy[1])) - off         # also add an offset (measured in pixels)
+    xmx = (Closest(rlon,xxx[0])) + off         # Gather the max and minimum range
+    xmn = (Closest(rlon,xxx[1])) - off         # also add an offset (measured in pixels)
+    sub_rlat = rlat[ymn:ymx]
+    sub_rlon = rlon[xmn:xmx]
+    data_sub = Cdat[:, ymn:ymx, xmn:xmx]
+    # if show == True:          # (If show is set to True, then make a plot to show what's what)
+    #     fig3 = plt.figure()
+    #     ax1 = fig3.add_subplot(111)
+    #     patch = patches.PathPatch(lake_rprj, facecolor='#06ebf6', lw=1)
+    #     ax1.add_patch(patch)      # ADD LAKE
+    #     ax1.set_ylabel('Lat. (Deg. N)')
+    #     ax1.set_xlabel('Lon. (Deg. E)')
+    #     ax1.set_title('Preview of trimmed climate data with lake overlaid')
+    #     ax1.imshow(data_sub,interpolation='none', cmap=cm.RdBu,
+    #                extent=[sub_rlon[0],sub_rlon[-1],sub_rlat[0],sub_rlat[-1]],origin='lower')
+    #     plt.show(fig3)    
+    #     print shape(data_sub),type(data_sub)
+    return data_sub,sub_rlat,sub_rlon
+
+
+
 def Update_Progress(progress):
     '''A nice solution to progress bars, all contained here (no need
     to load packages). Update_Progress() : Displays or updates a
@@ -621,6 +683,31 @@ def Weighted_Mean(weight_mask,sub_clim,chatty):
     for n in xrange(len(aaa[0])):
         val_out = val_out + weight_mask[aaa[0][n],aaa[1][n]] * sub_clim[aaa[0][n],aaa[1][n]]
     return val_out
+
+def Weighted_Mean_3D(weight_mask,all_time_clim,chatty):
+    '''Purpose    - Reads in the 2D weight mask (from Pixel_Weights
+    function) and the trimmed data from TrimToLake and returns a
+    weighted mean. This should be iterated for each time-step.
+    Input    - weight_mask: Pixel weights
+             - all_time_clim: the climate data (lat lon subset)
+             - chatty: a true or false statement, if true, it will 
+               print some info on the weighting process.
+    Output   - val_out: the weighted mean value
+    '''
+    aaa = (weight_mask > 0.000).flatten()   # Indx where weights exist
+    if (len(aaa) == 0):
+        print 'Error: no lake cover identified! :('
+    if (chatty == True):
+        print 'Lake covers',len(weight_mask[aaa]),' pixels'
+        print 'Actual weight values are :',weight_mask[aaa]
+        print 'Cum. sum of pixel weights (should end as 1.0):',cumsum(weight_mask[aaa])
+    dim1, dim2, dim3 = all_time_clim.shape
+    d = all_time_clim.reshape((dim1, dim2 * dim3))[:, aaa] ## n_time x n_pixels
+    wm = weight_mask.flatten()[aaa]
+    val_out = np.dot(d, wm.reshape(len(wm), 1)) ## n_time x n_pixels dot n_pixels x 1
+    return val_out
+
+
 
 #
 #
