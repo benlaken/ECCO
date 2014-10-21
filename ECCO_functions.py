@@ -286,6 +286,45 @@ def Path_Make(coord):
     return path_out
 
 
+def PMake(coord):
+    '''Purpose  - Create a Polygon from the Lake vectors, as a Matplotlib.Path.Path object, and nothing else.
+    Input    - Lake coordinate data as an x,y list (from the GeoJSON file).
+    Output   - x,y vectors of path, and codes (used to create a Path Matplotlib object)
+    Requires - Matplotlib.Path import Path
+    Notes   - The way the lake addressing goes is Lake[0][0][0] where the first 0 is the individual lake.
+    Lake[0][0][:] will give you every x,y element. Lake[0][0][0][0] will give the first x-element of the first lake.
+    Lake[0][0][0][1] will give the first y-element etc.
+    '''
+    verts =[] ; codes=[]
+    pth_ln = int(len(coord) - 1) 
+    for i,n in enumerate(coord[0:pth_ln]):
+        #print i,n
+        verts.append(n)
+        if i == 0:
+            codes.append(Path.MOVETO)
+        if ((i >= 1)&(i < (pth_ln - 1))):
+            codes.append(Path.LINETO)  
+        if i == (pth_ln - 1):
+            codes.append(Path.CLOSEPOLY)
+    path_out = Path(verts, codes)  
+    return verts,codes
+
+
+def Path_Lake_and_Islands(num,lake_path):
+    '''Purpose  - This function replaces Path_Make() with a function able to add islands.
+    Input - Number of Lake
+          - List of Lake coordinates read in from the datafile
+    Output- Path (a Matplotlib.Path object)
+    '''
+    num_rings = len(lake_path[num][0]) 
+    pathouts = [PMake(lake_path[num][0][ringi]) for ringi in range(num_rings)]
+    coordinates = [e1 for e1, e2 in pathouts]
+    codeouts = [e2 for e1, e2 in pathouts]
+    lk_stack = np.concatenate(coordinates, axis=0)
+    lk_codes = np.concatenate(codeouts, axis=0)
+    path_wisl = Path(lk_stack, lk_codes)
+    return path_wisl
+
 
 def Path_Reproj(path_in,INV):
     '''This program reprojects a path object from cartesian lat lon 
