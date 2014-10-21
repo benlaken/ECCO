@@ -45,6 +45,20 @@ def Read_Lakes(file_in):
     return lake_geometry, lake_id, lake_name,lake_path,lake_altitude,feno_lake_id
 
 
+def Read_LakesV2(file_in):
+    '''Purpose - Use Json module to read GeoJSON Lake data
+    Input   - File name including path (string)
+    Output  - Various arrays containing Lake data
+    '''
+    with open(file_in) as f:
+        data = json.load(f)
+    EB_id = [feature['properties']['EBhex'] for feature in data['features']]
+    lake_path = [feature['geometry']['coordinates'] for feature in data['features']]
+    lake_altitude = [feature['properties']['vfp_mean'] for feature in data['features']]
+
+    return EB_id, lake_path, lake_altitude 
+
+
 def Tmp_CORDEX_Read():
     '''Temporay way to read the CORDEX data, while I am testing the 
     software and getting the remote access working still.
@@ -57,7 +71,8 @@ def Tmp_CORDEX_Read():
     #print cordex_files  # NB having some problem, CORDEX file names are too big for the module to read!
     # I have temporarily renamed tas_EUR-11_ICHEC-EC-EARTH_rcp45_r1i1p1_KNMI-RACMO22E_v1_day_20960101-21001231.nc
     # to tas_20960101-21001231.nc while i am testing...
-    NCfpth = 'Data/CORDEX/tas_20960101-21001231.nc'
+    #NCfpth = 'Data/CORDEX/tas_20960101-21001231.nc'
+    NCfpth = '/uio/kant/geo-metos-u1/blaken/Downloads/tas_EUR-11_ICHEC-EC-EARTH_rcp85_r3i1p1_DMI-HIRHAM5_v1_day_20960101-21001231.nc'
     #print 'Reading file:',NCfpth
     tmp = Dataset(NCfpth,'r')              # Use NetCDF4 to read the file
     tmp.close                              # Close the connection to the file 
@@ -79,7 +94,7 @@ def Tmp_CORDEX_Read():
     time = tmp.variables['time']
     
     drange = NCfpth  # This is a unicode date range of the data stripped from the filename, pass it to the text
-    drange = drange[-20:-3]   # files as part of their naming convention
+    drange = drange[-20:-3]   # files as part of    their naming convention
     dexp = tmp.driving_experiment  # variable to hold experiment info
     return tas,rlat,rlon,time,drange,dexp
 
@@ -310,7 +325,7 @@ def PMake(coord):
     return verts,codes
 
 
-def Path_Lake_and_Islands(num,lake_path):
+def Path_Lake_and_Islands_old(num,lake_path):
     '''Purpose  - This function replaces Path_Make() with a function able to add islands.
     Input - Number of Lake
           - List of Lake coordinates read in from the datafile
@@ -325,6 +340,20 @@ def Path_Lake_and_Islands(num,lake_path):
     path_wisl = Path(lk_stack, lk_codes)
     return path_wisl
 
+def Path_Lake_and_Islands(num,lake_path):
+    '''Purpose  - This function replaces Path_Make() with a function able to add islands.
+    Input - Number of Lake
+          - List of Lake coordinates read in from the datafile
+    Output- Path (a Matplotlib.Path object)
+    '''
+    num_rings = len(lake_path[num]) 
+    pathouts = [PMake(lake_path[num][ringi]) for ringi in range(num_rings)]
+    coordinates = [e1 for e1, e2 in pathouts]
+    codeouts = [e2 for e1, e2 in pathouts]
+    lk_stack = np.concatenate(coordinates, axis=0)
+    lk_codes = np.concatenate(codeouts, axis=0)
+    path_wisl = Path(lk_stack, lk_codes)
+    return path_wisl
 
 def Path_Reproj(path_in,INV):
     '''This program reprojects a path object from cartesian lat lon 
