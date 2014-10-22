@@ -803,7 +803,7 @@ def Weighted_Mean(weight_mask,sub_clim,chatty):
     if (chatty == True):
         print 'Lake covers',len(weight_mask[aaa]),' pixels'
         print 'Actual weight values are :',weight_mask[aaa]
-        print 'Cum. sum of pixel weights (should end as 1.0):',cumsum(weight_mask[aaa])
+        print 'Cum. sum of pixel weights (should end as 1.0):',np.cumsum(weight_mask[aaa])
     val_out = 0
     for n in xrange(len(aaa[0])):
         val_out = val_out + weight_mask[aaa[0][n],aaa[1][n]] * sub_clim[aaa[0][n],aaa[1][n]]
