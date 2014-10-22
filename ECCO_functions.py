@@ -59,6 +59,40 @@ def Read_LakesV2(file_in):
     return EB_id, lake_path, lake_altitude 
 
 
+def Read_CORDEX_V2(nc_path):
+    ''' PURPOSE
+    After NetCDF4 data has been downloaded from a WGet script (obtained
+    from ESGF website), this subroutine takes the path/fname as an input,
+    and returns the data and metadata. In this case, metadata re the details
+    of the file are taken from the filename rather than the netcdf contents.
+
+    INPUT
+    The path to the netcdf file only
+
+    OUTPUT
+    clim_dat : the actual climate data from the file
+    rlat / rlon : rotated lat/lon coordinate dimensions
+    time : time dimension
+    metadata : a list of metadata extracted from the filename
+    drange : the daterange of the file (extracted from filename)
+    txtfname : the filename of the output text file (made of variable name
+                and date range).
+    '''
+    #print(metadata)
+    nc_fname = os.path.basename(nc_path)
+    metadata = os.path.splitext(nc_fname)[0].split('_')
+    vname, m1, m2, dexp, m3, m4, m5, m6, drange_orignial = metadata
+    drange = '_'.join([dexp, drange_orignial])
+    txtfname = '_'.join([vname, drange])
+    nc = Dataset(nc_path)                 # Read the NetCDF Data 
+    clim_dat = nc.variables[vname]
+    rlat = nc.variables['rlat']
+    rlon = nc.variables['rlon']
+    time = nc.variables['time']
+    return clim_dat,rlat,rlon,time,metadata,txtfname
+
+
+
 def Tmp_CORDEX_Read():
     '''Temporay way to read the CORDEX data, while I am testing the 
     software and getting the remote access working still.
@@ -181,6 +215,29 @@ def EqArea(verts):
         y = latitude * lat_dist
         eqout.append([x,y])
     return eqout
+
+
+def Folder_Create(outputprefix,fnm_head,EBid):
+    '''Purpose   -  A function to generate the file paths for a 
+    given lake (from the EB-ID and user-specified output path).
+    '''
+    out = os.path.join(outputprefix, fnm_head)       
+    ideb = EBid[2:]
+    #print(ideb)
+    l = len(ideb)
+    if l == 6:
+        idnew = ideb
+    elif l == 5:
+        idnew = '0%s' % ideb
+    elif l == 4:
+        idnew = '00%s' % ideb
+    elif l == 3:
+        idnew = '000%s' % ideb
+    elif l == 2:
+        idnew = '0000%s' % ideb
+    elif l == 1:
+        idnew = '00000%s' % ideb
+    return
 
 
 def Get_LatLonLim(xypath):
