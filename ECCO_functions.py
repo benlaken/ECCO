@@ -137,6 +137,59 @@ def Tmp_CORDEX_Read():
 #  ROUTINES FOR PROCESSING DATA
 #
 
+def Area_Lake_and_Islands(lake_poly):
+    '''Purpose  -  Calculate the area of a given Lake polygon, taking into account islands.
+    Input - Lake polygon object (which may or may not include islands). Polygon object 
+            should be generated with the function Path_Lake_and_Islands().
+    Output- If islands are present the output is the area (in km^2) of the lake boundary
+            minus the sum of the island(s) area. If no islands are present then the output
+            is simply the area of the lake boundary.
+    '''
+    aaa = np.where(lake_poly.codes == 1)
+    bbb = np.where(lake_poly.codes == 79)
+    #print 'number of 1s:',len(aaa[0])
+    #print 'number of 79s',len(bbb[0])
+    island_num = (len(aaa[0]))-1
+    #print 'Found %i Islands'%island_num
+    area_start = [i for n,i in enumerate(aaa[0])]
+    area_end = [i for n,i in enumerate(bbb[0])]
+    #Seperated paths, pos.0 is the boundary and rest are islands
+    sep_paths = [lake_poly.vertices[area_start[n]:area_end[n]] for n,i in enumerate(area_start)]
+    sep_areas = [float(Poly_Area2D(EqArea(sep_paths[n]))) for n in xrange(len(sep_paths))]
+    if island_num > 0:
+        total = sep_areas[0] - sum(sep_areas[1:])
+        #print 'Area minus Islands:',total
+    else:
+        total = sep_areas[0]
+        #print 'No islands found, total area is simply lake boundary'
+    #print 'Area without considering islands:',sep_areas[0]
+    return total
+
+def BBOX_PathCode_Fix(lake_poly):
+    '''
+    Need to solve a problem where BBOX trimmed paths have no end 79 code. This
+    breaks my super-area calculation code for islands...
+    '''
+    #print 'before hack',lake_poly.codes 
+    if 79 in lake_poly.codes:  # Gives false if no 79 code exists (no end polypath)
+        #print 'True 79 code exists, taking no action'
+        x = 0  # doesnt do anything, just lets the code pass to the else
+    else:
+        #print 'False 79 code is not present, adding it to correct places'
+        aaa = np.where(lake_poly.codes == 1)
+        #print len(aaa[0]),'start codes'
+        # Need to insert 79 codes at: 1) before all 1 codes after position 0, and 
+        # 2) in the last element of the array
+        lake_poly.codes[-1] = 79                 # Start with the last element...
+        if(len(aaa[0]) > 1):   # for sitatuion with at least one island...
+            for n,i in enumerate(aaa[0]):
+                if n > 0:
+                    lake_poly.codes[i-1]=79
+    #print 'after hack',lake_poly.codes
+    return lake_poly
+
+
+
 def Calc_Coordinates(lon_2transform,lat_2transform):
     ''' Returns lat lon coordinates on a polar rotated sphere, from
     the input of the North Pole longitude, and North Pole latitude
@@ -473,6 +526,12 @@ def Pixel_Weights(lake_in, datin,lat_atts,lon_atts):
               calculated, and divided by the area of the total lake
               (also in km^2). The areas are calculated by the custom
               functions EqArea() and PolyArea2D().
+
+              Nb. As of 23rd Oct 2014, this was updated to use Area_
+              Lake_and_Islands() function to calculate area. This
+              requires the BBOX_PathCode_Fix() function also, to 
+              correct an error, where after trimming, the 79 (close)
+              path codes may be removed.
     '''
     lout = lake_in
     pix_weights = np.zeros(np.shape(datin))
@@ -502,8 +561,11 @@ def Pixel_Weights(lake_in, datin,lat_atts,lon_atts):
                 #pix_weights[y,x] = 0.0             # For pixels where Lake is, calc. and write the frac area (%)
                 sub_lout =[] ; area_sub = []
                 sub_lout = lout.clip_to_bbox(tmpbb,inside ='True')
-                area_sub = Poly_Area2D(EqArea(sub_lout.vertices))
-                lkarea = Poly_Area2D(EqArea(lout.vertices))
+                #area_sub = Poly_Area2D(EqArea(sub_lout.vertices))
+                #lkarea = Poly_Area2D(EqArea(lout.vertices))
+                sub_lout = BBOX_PathCode_Fix(sub_lout) # Corrects the 79 code error!
+                area_sub = Area_Lake_and_Islands(sub_lout)
+                lkarea = Area_Lake_and_Islands(lout)
                 pix_weights[y,x]= float(area_sub)/float(lkarea)   # Fractional area (0-1.0) of lake within a given pixel
     return pix_weights
 
@@ -740,18 +802,6 @@ def TrimToLake3D(lake_in,Cdat,rlat,rlon,off,show):
     sub_rlat = rlat[ymn:ymx]
     sub_rlon = rlon[xmn:xmx]
     data_sub = Cdat[:, ymn:ymx, xmn:xmx]
-    # if show == True:          # (If show is set to True, then make a plot to show what's what)
-    #     fig3 = plt.figure()
-    #     ax1 = fig3.add_subplot(111)
-    #     patch = patches.PathPatch(lake_rprj, facecolor='#06ebf6', lw=1)
-    #     ax1.add_patch(patch)      # ADD LAKE
-    #     ax1.set_ylabel('Lat. (Deg. N)')
-    #     ax1.set_xlabel('Lon. (Deg. E)')
-    #     ax1.set_title('Preview of trimmed climate data with lake overlaid')
-    #     ax1.imshow(data_sub,interpolation='none', cmap=cm.RdBu,
-    #                extent=[sub_rlon[0],sub_rlon[-1],sub_rlat[0],sub_rlat[-1]],origin='lower')
-    #     plt.show(fig3)    
-    #     print shape(data_sub),type(data_sub)
     return data_sub,sub_rlat,sub_rlon
 
 
