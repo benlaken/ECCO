@@ -53,8 +53,8 @@ def MT_Means_Over_Lake(nc_path, lake_file, lake_num, outputprefix, threeD=True,
         Preview_Lake(lake_cart)
         print 'Island aware Area(km^2)=', Area_Lake_and_Islands(lake_cart),         
         print ', No. xy lake boundary points=',len(lake_cart.vertices)
-    if Area_Lake_and_Islands(lake_cart) > 5000.:
-        lake_cart = Path_Make(lake_path[num][0])  # If the lake is massive, 
+    #if Area_Lake_and_Islands(lake_cart) > 5000.:
+    #    lake_cart = Path_Make(lake_path[num][0])  # If the lake is massive, 
     #then ignore the islands. Needed as an error with big lakes 
     # where they can have totally empty pixels inside from small satellite lakes.
     lake_rprj = Path_Reproj(lake_cart,False)             
@@ -662,11 +662,28 @@ def Pixel_Weights(lake_in, datin,lat_atts,lon_atts):
                 y_ur = y_ll + latstep  
             lims =np.array([[x_ll,y_ll],[x_ur,y_ur]])  # Construct a 2D np.array for the BB object
             tmpbb = Bbox(lims)
-            test = lout.intersects_bbox(tmpbb)
-            if (test == 1):                         # If Lake within the Bbox test will be 1 (no lake, test = 0)
+            
+            #acheck = 0  # My own logical test to see if pixels overlap with lake
+            #for n in lout.vertices:
+            #    if ((n[0] > lims[0][0])&(n[0]<lims[1][0])&(n[1] >lims[0][1])&\
+            #        (n[1]<lims[1][1])):
+            #        acheck = 1
+
+            ben_test = 0
+            acheck = [((n[0] > lims[0][0])&(n[0]<lims[1][0])&(n[1] >lims[0][1])&\
+                (n[1]<lims[1][1])) for n in lout.vertices]
+            acheck = np.array(acheck)
+            tst = np.where(acheck == True)  # Use this snippet to test if the coordinates
+            if len(tst[0]) > 0:             # Fall within a bounding box range 
+                ben_test = 1
+            #print 'Values in BB?',ben_test
+            #print 'Condition ',acheck
+            #test = lout.intersects_bbox(tmpbb)  # THIS isnt working right with the islands
+            if (ben_test == 1):                         # If Lake within the Bbox test will be 1 (no lake, test = 0)
                 cnt = cnt + 1                       # Counter is just for testing.
                 #pix_weights[y,x] = 0.0             # For pixels where Lake is, calc. and write the frac area (%)
                 sub_lout =[] ; area_sub = []
+                #print 'Here!',lims
                 sub_lout = lout.clip_to_bbox(tmpbb,inside ='True')
                 #area_sub = Poly_Area2D(EqArea(sub_lout.vertices))
                 #lkarea = Poly_Area2D(EqArea(lout.vertices))
