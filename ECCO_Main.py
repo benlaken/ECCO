@@ -40,13 +40,12 @@ for n in xrange(p_groups):
     #print 'loop',n,' of ', p_groups,'  group:',srng,':',frng
     srng+= cpus
     frng+= cpus  # increment start and finish by the number of CPUs
-    Update_Progress(n+1./float(p_groups))  # A small progress bar...
+    Update_Progress(float(n)/(float(p_groups)-1.))  # A small progress bar...
 
 #for p in processes:
 #    p.start()
 #for p in processes:
 #    p.join()           #Kill zombies
-
 
 fin_time = time.time()
 print '\n','Finished processing in %6.2f min.'%((fin_time-start)/60.)
