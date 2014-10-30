@@ -14,15 +14,12 @@ out_path = 'Outputs'
 #lake_num = 5
 #MT_Means_Over_Lake(nc_path,lake_data,\
 #                4,out_path,plots=True,rprt_tme=True)
-#for n in range(5):
-#
-#    MT_Means_Over_Lake(nc_path,lake_data,\
-#                    n,out_path,plots=False,rprt_tme=False)
-
 
 
 
 # Nb. Below, i, an incrementing integer, represents the lake number
+# range(n) below is a simple way of hardcoding the total number of lakes
+# to run though the file.
 processes= [Process(target=MT_Means_Over_Lake, args=(nc_path,lake_data,\
                     i,out_path,), kwargs={'plots':False,'rprt_tme':False,})\
                                     for i in range(24)]
@@ -42,11 +39,6 @@ for n in xrange(p_groups):
     frng+= cpus  # increment start and finish by the number of CPUs
     Update_Progress(float(n)/(float(p_groups)-1.))  # A small progress bar...
 
-#for p in processes:
-#    p.start()
-#for p in processes:
-#    p.join()           #Kill zombies
 
 fin_time = time.time()
 print '\n','Finished processing in %6.2f min.'%((fin_time-start)/60.)
-
