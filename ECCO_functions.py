@@ -9,6 +9,113 @@ from matplotlib.transforms import Bbox
 from math import pi, cos, sin, radians, atan, asin
 import mpl_toolkits.basemap.pyproj as pyproj
 import matplotlib.pyplot as plt
+import os
+import time
+import time as clock
+
+
+
+def MT_Means_Over_Lake(nc_path, lake_file, lake_num, outputprefix, threeD=True,
+                       tt=None,plots = False,rprt_tme=False):
+    '''Purpose             This program is the main wrapper to execute the ECCO 
+    project functions. It is designed to be executed within the MultiProcessing
+    module. Where one Lake is processed by one Process. All other functions in
+    this file are called within this function. It essnetially loads data, gets
+    a weight mask, calculates the orographic offset, error correction value for 
+    the header, weights the climate data, and creates a folder/file system with
+    the appropriate name (generated from metadata), and the writes out a copre-
+    ssed text file.
+    Inputs
+    Nc_path is the file path for the CORDEX NetCDF file
+    lake_data is file path and filename to GeoJSON file
+    lake_num is the lake number to be processed (the int feature number from 
+    within the lake_data file) outputprefix is the directory for the outputs
+    (it will be then nested according to netcdf file name)
+    Outputs 
+    Compressed text files with a time-series of values weighted averages 
+    over each lake.
+    Notes 
+    Multiprocessing is not shared memory, so need to load data for each process.
+    A much more heavily commented version of this code exists (Speed_MeUp.ipnyb)
+    which was where this function was developed and tested.
+    '''
+    if rprt_tme == True:
+        a = clock.time()                                                        
+    num = lake_num
+    orog = Height_CORDEX()               
+    EB_id, lake_path, lake_altitude = Read_LakesV2(lake_file)
+    clim_dat,rlat,rlon,time,metadata,txtfname = Read_CORDEX_V2(nc_path)
+    vname, m1, m2, dexp, m3, m4, m5, m6, drange_orignial = metadata  
+    if rprt_tme == True:
+        b = clock.time() 
+    lake_cart = Path_Lake_and_Islands(num = num,lake_path=lake_path)
+    if plots == True:
+        Preview_Lake(lake_cart)
+        print 'Island aware Area(km^2)=', Area_Lake_and_Islands(lake_cart),         
+        print ', No. xy lake boundary points=',len(lake_cart.vertices)
+    if Area_Lake_and_Islands(lake_cart) > 5000.:
+        lake_cart = Path_Make(lake_path[num][0])  # If the lake is massive, 
+    #then ignore the islands. Needed as an error with big lakes 
+    # where they can have totally empty pixels inside from small satellite lakes.
+    lake_rprj = Path_Reproj(lake_cart,False)             
+    sub_clim,sub_rlat,sub_rlon = TrimToLake(lake_rprj,clim_dat[0,:,:],rlat,
+                                            rlon,off = 3, show = False)
+    weight_mask = Pixel_Weights(lake_rprj,sub_clim,sub_rlat,sub_rlon)
+    sub_orog,sub_rlat,sub_rlon = TrimToLake(lake_rprj,orog[:,:],rlat,
+                                            rlon,off = 3, show = False)
+    hght,offset = Orographic_Adjustment(weight_mask,sub_orog,
+                                        lake_altitude[num],clim_dat,
+                                        chatty=False)
+    if plots == True:
+        Show_LakeAndData(lake_rprj,clim_dat[0,:,:],rlat,rlon,zoom=8.)
+        Preview_Weights(lake_rprj,weight_mask,sub_rlat,sub_rlon)
+    if rprt_tme == True:
+        c = clock.time()
+    if threeD:
+        sub_clim,sub_rlat,sub_rlon = TrimToLake3D(lake_rprj,clim_dat[:,:,:],
+                                            rlat,rlon,off = 3, show = False)
+        tlist = Weighted_Mean_3D(weight_mask, sub_clim, chatty=False)
+    else:
+        tlist =[]
+        if tt is None:
+            tt = clim_dat.shape[0]
+        for t in xrange(tt):
+            sub_clim,sub_rlat,sub_rlon = TrimToLake(lake_rprj,clim_dat[t,:,:],
+                                                rlat,rlon,off = 3, show = False)
+            if t == 0 :
+                final_val = Weighted_Mean(weight_mask,sub_clim,chatty=True)
+            else:
+                final_val = Weighted_Mean(weight_mask,sub_clim,chatty=False)
+            tlist.append(final_val)
+            print 'Timestep:',t, '  Weighted temperature =','%6.2f'%((final_val
+                                                              )-272.15),'Deg C'
+        tlist = np.array(tlist)
+    
+    if rprt_tme == True:
+        d = clock.time()   
+    idnew = EB_id[lake_num][2:]   
+    fnm_head = vname+'_'        
+    hcreate = 'Height offset = %f  Data = %s, Time range = %s  Scenario = %s'%(\
+                              offset, clim_dat.long_name, drange_orignial, dexp)
+    Folder_Create(outputprefix,fnm_head,EB_id[lake_num])             
+    pathname = os.path.join(outputprefix, '_'.join([m1, m2, m3, m4, m5, m6]),
+                            idnew[:2], idnew[:4], idnew)
+    if not os.path.exists(pathname): os.makedirs(pathname)
+    np.savetxt(os.path.join(pathname, txtfname+'txt.gz'),
+               tlist,fmt='%7.3f',newline='\n', header=hcreate)  
+    if rprt_tme == True:
+        e = clock.time()
+        print '\n'
+        print ('%4.2f sec : Read Data:'%(b-a))
+        print ('%4.2f sec : Calculated height offset and Weighting Mask'%(c-b))
+        print ('%4.2f sec : Weighted time-series'%(d-c))
+        print ('%4.2f sec : Folder path and file creation'%(d-c))
+        print ('%4.2f sec : Total'%(e-a))
+    return
+
+
+
+
 
 
 #
@@ -884,12 +991,12 @@ def Weighted_Mean_3D(weight_mask,all_time_clim,chatty):
 
 
 
-#
+# VERSION 1: DEPRECIATED!
 #
 #    PRIMARY FUNCTIONS ALL COMBINED INTO A SINGLE FUNCTION BELOW
 #             READY TO BE RUN USING MUTLITHREADDING MODULE
 #
-def MT_Means_Over_Lake(lake_num):
+def OLD_MT_Means_Over_Lake(lake_num):
     ''' This function combines all the routines of the function file,
     to create time series (or images) of the individual lakes, with 
     data overlain. It outputs to a path created within the function,
@@ -898,6 +1005,10 @@ def MT_Means_Over_Lake(lake_num):
     version of the data. Takes about 7min per lake (for one EUR-11
     CORDEX file), and produces a 14kb text file (5kb in gz format):
     speed is on an approx 3GHz machine.
+
+    WARNING - THIS VERSION OF THE CODE IS DEPRECIATED. PLEASE USE 
+    MT_Means_Over_Lake  (which appears at the top of this file).
+
     '''
     num = lake_num
     # Load data - Note Multiprocessing does not use shared memory
@@ -952,5 +1063,4 @@ def MT_Means_Over_Lake(lake_num):
         ' Model = '+dexp
     txtfname = Gen_FileName(out,lake_name[num],drange,'.txt.gz')       
     np.savetxt(txtfname,tlist,fmt='%7.3f',newline='\n', header=hcreate)
-
     return
