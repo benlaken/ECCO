@@ -12,8 +12,11 @@ import matplotlib.pyplot as plt
 import os
 import time
 import time as clock
+import osgeo.ogr
 
-
+# NB the only diffrence between v2 (this file) and the original are that these
+# functions are set up to work with the input file for the lakes as a shape file
+# whereas the earlier code relied on a GeoJSON format.
 
 def MT_Means_Over_Lake(nc_path, lake_file, lake_num, outputprefix, threeD=True,
                        tt=None,plots = False,rprt_tme=False):
@@ -38,42 +41,45 @@ def MT_Means_Over_Lake(nc_path, lake_file, lake_num, outputprefix, threeD=True,
     Multiprocessing is not shared memory, so need to load data for each process.
     A much more heavily commented version of this code exists (Speed_MeUp.ipnyb)
     which was where this function was developed and tested.
+
+    This code is in version 2 as it has now been alterd to use the shapefile
+    lake data (rather than the GeoJSON data) which contains 127,000 lakes.
     '''
     if rprt_tme == True:
-        a = clock.time()                                                        
+        a = clock.time()
     num = lake_num
-    orog = Height_CORDEX()               
-    EB_id, lake_path, lake_altitude = Read_LakesV2(lake_file)
+    orog = Height_CORDEX()
+    ShapeData = osgeo.ogr.Open(lake_file)
+    TheLayer = ShapeData.GetLayer(iLayer=0)
+    feature1 = TheLayer.GetFeature(num) 
+    lake_feature = feature1.ExportToJson(as_object=True)
+    lake_cart = Path_LkIsl_ShpFile(lake_feature['geometry']['coordinates']) 
+    EB_id = lake_feature['properties']['EBhex']
+    lake_altitude=lake_feature['properties']['vfp_mean']
     clim_dat,rlat,rlon,time,metadata,txtfname = Read_CORDEX_V2(nc_path)
-    vname, m1, m2, dexp, m3, m4, m5, m6, drange_orignial = metadata  
+    vname, m1, m2, dexp, m3, m4, m5, m6, drange_orignial = metadata 
     if rprt_tme == True:
-        b = clock.time() 
-    lake_cart = Path_Lake_and_Islands(num = num,lake_path=lake_path)
+        b = clock.time()    
     if plots == True:
-        Preview_Lake(lake_cart)
+        Preview_Lake(lake_cart)        
         print 'Island aware Area(km^2)=', Area_Lake_and_Islands(lake_cart),         
         print ', No. xy lake boundary points=',len(lake_cart.vertices)
-    #if Area_Lake_and_Islands(lake_cart) > 5000.:
-    #    lake_cart = Path_Make(lake_path[num][0])  # If the lake is massive, 
-    #then ignore the islands. Needed as an error with big lakes 
-    # where they can have totally empty pixels inside from small satellite lakes.
     lake_rprj = Path_Reproj(lake_cart,False)             
     sub_clim,sub_rlat,sub_rlon = TrimToLake(lake_rprj,clim_dat[0,:,:],rlat,
-                                            rlon,off = 3, show = False)
+                                            rlon,off = 3, show = False) 
     weight_mask = Pixel_Weights(lake_rprj,sub_clim,sub_rlat,sub_rlon)
     sub_orog,sub_rlat,sub_rlon = TrimToLake(lake_rprj,orog[:,:],rlat,
                                             rlon,off = 3, show = False)
     hght,offset = Orographic_Adjustment(weight_mask,sub_orog,
-                                        lake_altitude[num],clim_dat,
-                                        chatty=False)
+                                        lake_altitude,clim_dat,chatty=False)
     if plots == True:
         Show_LakeAndData(lake_rprj,clim_dat[0,:,:],rlat,rlon,zoom=8.)
         Preview_Weights(lake_rprj,weight_mask,sub_rlat,sub_rlon)
     if rprt_tme == True:
         c = clock.time()
     if threeD:
-        sub_clim,sub_rlat,sub_rlon = TrimToLake3D(lake_rprj,clim_dat[:,:,:],
-                                            rlat,rlon,off = 3, show = False)
+        sub_clim,sub_rlat,sub_rlon = TrimToLake3D(lake_rprj,clim_dat[:,:,:],rlat,rlon,
+                                                    off = 3, show = False)
         tlist = Weighted_Mean_3D(weight_mask, sub_clim, chatty=False)
     else:
         tlist =[]
@@ -81,28 +87,26 @@ def MT_Means_Over_Lake(nc_path, lake_file, lake_num, outputprefix, threeD=True,
             tt = clim_dat.shape[0]
         for t in xrange(tt):
             sub_clim,sub_rlat,sub_rlon = TrimToLake(lake_rprj,clim_dat[t,:,:],
-                                                rlat,rlon,off = 3, show = False)
+                                                    rlat,rlon,off = 3, show = False)
             if t == 0 :
                 final_val = Weighted_Mean(weight_mask,sub_clim,chatty=True)
             else:
                 final_val = Weighted_Mean(weight_mask,sub_clim,chatty=False)
             tlist.append(final_val)
-            print 'Timestep:',t, '  Weighted temperature =','%6.2f'%((final_val
-                                                              )-272.15),'Deg C'
+            print 'Timestep:',t, ' Weighted tmp. =','%6.2f'%((final_val)-272.15),'C'
         tlist = np.array(tlist)
-    
     if rprt_tme == True:
-        d = clock.time()   
-    idnew = EB_id[lake_num][2:]   
-    fnm_head = vname+'_'        
+        d = clock.time() 
+    idnew = EB_id[2:]
+    fnm_head = vname+'_'
     hcreate = 'Height offset = %f  Data = %s, Time range = %s  Scenario = %s'%(\
-                              offset, clim_dat.long_name, drange_orignial, dexp)
-    Folder_Create(outputprefix,fnm_head,EB_id[lake_num])             
+                offset, clim_dat.long_name, drange_orignial, dexp)
+    Folder_Create(outputprefix,fnm_head,EB_id)
     pathname = os.path.join(outputprefix, '_'.join([m1, m2, m3, m4, m5, m6]),
                             idnew[:2], idnew[:4], idnew)
     if not os.path.exists(pathname): os.makedirs(pathname)
     np.savetxt(os.path.join(pathname, txtfname+'txt.gz'),
-               tlist,fmt='%7.3f',newline='\n', header=hcreate)  
+               tlist,fmt='%7.3f',newline='\n', header=hcreate)
     if rprt_tme == True:
         e = clock.time()
         print '\n'
@@ -112,7 +116,6 @@ def MT_Means_Over_Lake(nc_path, lake_file, lake_num, outputprefix, threeD=True,
         print ('%4.2f sec : Folder path and file creation'%(d-c))
         print ('%4.2f sec : Total'%(e-a))
     return
-
 
 
 
@@ -492,30 +495,49 @@ def Orographic_Adjustment(weight_mask,orog,lake_altitude,clim_dat,chatty):
 
 
 def Path_Make(coord):
-    '''Purpose  - Create a Polygon from the Lake vectors, as a 
-    Matplotlib.Path.Path object, and nothing else.
-    Input    - Lake coordinate data as an x,y list (from GeoJSON).
-    Output   - Path_out (A Matplotlib.Path object) 
-    Requires - Matplotlib.Path import Path
-    Notes    - The way the lake addressing goes: Lake[0][0][0] where
-               the first 0 is the individual lake.
-               Lake[0][0][:] will give you every x,y element. 
-               Lake[0][0][0][0] will give the first x-element of the
-               first lake. Lake[0][0][0][1] will give the first 
-               y-element etc.
+    '''Purpose  - Create a Polygon from the Lake vectors, as a Matplotlib.Path.Path object, and nothing else.\n",
+    Input    - Lake coordinate data as an x,y list (from the GeoJSON file).\n",
+    Output   - Path_out (A Matplotlib.Path object) \n",
+    Requires - Matplotlib.Path import Path\n",
+    Notes   - The way the lake addressing goes is Lake[0][0][0] where the first 0 is the individual lake.\n",
+    Lake[0][0][:] will give you every x,y element. Lake[0][0][0][0] will give the first x-element of the first lake.\n",
+    Lake[0][0][0][1] will give the first y-element etc.
+    nb. This is version 2 created Nov 10th 2014
     '''
     verts =[] ; codes=[]
-    pth_ln = int(len(coord) - 1) 
+    pth_ln = int(len(coord) - 1)
     for i,n in enumerate(coord[0:pth_ln]):
         verts.append(n)
         if i == 0:
             codes.append(Path.MOVETO)
         if ((i >= 1)&(i < (pth_ln - 1))):
-            codes.append(Path.LINETO)  
+            codes.append(Path.LINETO)
         if i == (pth_ln - 1):
             codes.append(Path.CLOSEPOLY)
-    path_out = Path(verts, codes)  
+    path_out = Path(verts, codes)
     return path_out
+
+
+def Path_LkIsl_ShpFile(lake_path):
+    '''Purpose  - This function replaces a direct call to Path_Make() with a function
+    able to add islands. This is reading data from the shapefile, not GeoJSON.
+    Input - Feature['geometry']['coordinates'] (taken from a shp file layer)
+    Output- Path (a Matplotlib.Path object)
+    nb. edited Nov 10th 2014
+    This is the function which should be used to create island-smart lakes from shp file.
+    '''
+    num_rings = len(lake_path)
+    pathouts=[Path_Make(lake_path[ringi]) for ringi in range(num_rings)]
+    psep =[]
+    csep =[]
+    for n in xrange(num_rings):
+        ptmp = pathouts[n]
+        psep.append(ptmp.vertices)
+        csep.append(ptmp.codes)
+    lk_stack = np.concatenate(psep, axis=0)
+    lk_codes = np.concatenate(csep, axis=0)
+    path_wisl = Path(lk_stack, lk_codes)
+    return path_wisl
 
 
 def PMake(coord):
@@ -526,6 +548,7 @@ def PMake(coord):
     Notes   - The way the lake addressing goes is Lake[0][0][0] where the first 0 is the individual lake.
     Lake[0][0][:] will give you every x,y element. Lake[0][0][0][0] will give the first x-element of the first lake.
     Lake[0][0][0][1] will give the first y-element etc.
+    This works with the GeoJSON format file.
     '''
     verts =[] ; codes=[]
     pth_ln = int(len(coord) - 1) 
