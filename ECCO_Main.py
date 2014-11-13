@@ -16,7 +16,7 @@ lake_data = '/uio/kant/geo-metos-u1/blaken/datadisk/ECCO/Lakes/ecco-biwa_lakes_v
 out_path = '/uio/kant/geo-metos-u1/blaken/datadisk/ECCO/Outputs'
 
 # Search for all files in the below location with *.nc and generate a list.
-nc_folder = '/uio/kant/geo-metos-u1/blaken/datadisk/ECCO/CORDEX/'
+nc_folder = '/uio/kant/geo-metos-u1/blaken/datadisk/ECCO/CORDEX/Data_CORDEX/'
 nc_list = glob.glob(nc_folder+'*.nc')  
 
 
