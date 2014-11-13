@@ -11,24 +11,33 @@
 # 
 # Benjamin A. Laken (blaken@geo.uio.no)
 ###############################################################################
-echo "Commencing ECCO workflow..."
 
-wget_file="/uio/kant/geo-metos-u1/blaken/datadisk/ECCO/CORDEX/wget_EUR-11.KNMI_all.sh"
-nc_path="/uio/kant/geo-metos-u1/blaken/datadisk/ECCO/CORDEX/Data_ECCO/"
+pth_vann="/mn/vann/metos-d1/blaken/ECCO" 
+
+wget_folder=$pth_vann/"CORDEX"
+nc_path=$pth_vann/"CORDEX/Data_CORDEX"
+
+#cd $pth_vann
+# cd -
+# pwd
+# read
 
 
+### DOWNLOAD THE DATA
+pushd $wget_folder
+pwd
+bash $wget_folder/"wget_EUR-11.KNMI_all.sh"    # RUN A WGET SCRIPT
+popd
 
-echo $wget_file
 
-#bash $action_folder$wget_script
+### PROCESS THE DATA
+nice python ECCO_Main.py  # run main python script from working dir
 
-ls $nc_path"*.nc" -G
-
+### REMOVE THE NETCDF FILES
 pushd $nc_path
 pwd
-for f in *; do
-  echo "File -> $f"
-done
-
-popd
-pwd
+#read
+echo "Erasing the following files:"
+for i in $(ls *.nc); do echo $i; done
+#for i in $(ls *.nc); do rm $i; done      # REMOVE THE .NC FILES
+#popd
