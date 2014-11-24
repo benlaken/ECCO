@@ -99,8 +99,8 @@ def MT_Means_Over_Lake(nc_path, lake_file, lake_num, outputprefix, threeD=True,
         d = clock.time() 
     idnew = EB_id[2:]
     fnm_head = vname+'_'
-    hcreate = 'Height offset = %f  Data = %s, Time range = %s  Scenario = %s'%(\
-                offset, clim_dat.long_name, drange_orignial, dexp)
+    hcreate = 'Height offset = %f  Data = %s, Time range = %s  Scenario = %s  Lake = %s'%(\
+                offset, clim_dat.long_name, drange_orignial, dexp, EB_id[2:])
     Folder_Create(outputprefix,fnm_head,EB_id)
     pathname = os.path.join(outputprefix, '_'.join([m1, m2, m3, m4, m5, m6]),
                             idnew[:2], idnew[:4], idnew)
@@ -461,6 +461,7 @@ def Orographic_Adjustment(weight_mask,orog,lake_altitude,clim_dat,chatty):
     '''
     type_of_data = clim_dat.standard_name
     ELR = 6.49/1000    # Environmental lapse rate of 6.49K per 1,000m
+    Pchng = 1200/100    # Pressue change of 1.2kPa per 100m
     offset_made = False   # Initialise a boolean test as False
     aaa = np.where(weight_mask > 0.000)   # Index where weights exist
     if (len(aaa[0]) == 0):
@@ -482,6 +483,11 @@ def Orographic_Adjustment(weight_mask,orog,lake_altitude,clim_dat,chatty):
             #print 'found air temp data'
             #print 'blah2',(orog[aaa[0][n],aaa[1][n]]- lake_altitude) * ELR
             tmp_diffs.append((orog[aaa[0][n],aaa[1][n]]- lake_altitude) * ELR)
+            offset_made =True
+
+    for n in xrange(len(aaa[0])):  # For every lake pixel, calc height adjustment
+        if type_of_data == 'surface_air_pressure':
+            tmp_diffs.append((orog[aaa[0][n],aaa[1][n]]- lake_altitude) * Pchng)
             offset_made =True
 
     if offset_made == True:
