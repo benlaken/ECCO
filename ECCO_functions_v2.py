@@ -669,6 +669,7 @@ def Pixel_Weights(lake_in, datin,lat_atts,lon_atts):
               correct an error, where after trimming, the 79 (close)
               path codes may be removed.
     '''
+    fillone = 0  # A small fix to ensure a bug-fix wont break (fix was for cases of puddles)
     lout = lake_in
     pix_weights = np.zeros(np.shape(datin))
     cnt = 0
@@ -707,8 +708,8 @@ def Pixel_Weights(lake_in, datin,lat_atts,lon_atts):
                 ben_test = 1
             #print 'Values in BB?',ben_test
             #print 'Condition ',acheck
-            #test = lout.intersects_bbox(tmpbb)  # THIS isnt working right with the islands
-            if (ben_test == 1):                         # If Lake within the Bbox test will be 1 (no lake, test = 0)
+            #test = lout.intersects_bbox(tmpbb)     # This isn't working right with the islands
+            if (ben_test == 1):                     # If Lake within the Bbox test will be 1 (no lake, test = 0)
                 cnt = cnt + 1                       # Counter is just for testing.
                 #pix_weights[y,x] = 0.0             # For pixels where Lake is, calc. and write the frac area (%)
                 sub_lout =[] ; area_sub = []
@@ -719,7 +720,14 @@ def Pixel_Weights(lake_in, datin,lat_atts,lon_atts):
                 sub_lout = BBOX_PathCode_Fix(sub_lout) # Corrects the 79 code error!
                 area_sub = Area_Lake_and_Islands(sub_lout)
                 lkarea = Area_Lake_and_Islands(lout)
-                pix_weights[y,x]= float(area_sub)/float(lkarea)   # Fractional area (0-1.0) of lake within a given pixel
+                if lkarea > 0.1:  # Added 4 Dec 2014 to combat a bug from small lakes
+                    pix_weights[y,x]= float(area_sub)/float(lkarea)
+                if lkarea < 0.1:
+                    if fillone == 0:
+                        #print 'CHECK: INSIDE YES!'
+                        pix_weights[y,x] = 1.
+                    fillone = fillone + 1   
+                    # Fractional area (0-1.0) of lake within a given pixel
     return pix_weights
 
 
