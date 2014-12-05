@@ -18,7 +18,7 @@ import osgeo.ogr
 # functions are set up to work with the input file for the lakes as a shape file
 # whereas the earlier code relied on a GeoJSON format.
 
-def MT_Means_Over_Lake(nc_path, lake_file, lake_num, outputprefix, threeD=True,
+def MT_Means_Over_Lake(nc_path, lake_file, lake_num, outputprefix,
                        tt=None,plots = False,rprt_tme=False):
     '''Purpose             This program is the main wrapper to execute the ECCO 
     project functions. It is designed to be executed within the MultiProcessing
@@ -48,14 +48,13 @@ def MT_Means_Over_Lake(nc_path, lake_file, lake_num, outputprefix, threeD=True,
     if rprt_tme == True:
         a = clock.time()
     num = lake_num
-    orog = Height_CORDEX()
     ShapeData = osgeo.ogr.Open(lake_file)
     TheLayer = ShapeData.GetLayer(iLayer=0)
     feature1 = TheLayer.GetFeature(num) 
     lake_feature = feature1.ExportToJson(as_object=True)
     lake_cart = Path_LkIsl_ShpFile(lake_feature['geometry']['coordinates']) 
     EB_id = lake_feature['properties']['EBhex']
-    lake_altitude=lake_feature['properties']['vfp_mean']
+
     clim_dat,rlat,rlon,time,metadata,txtfname = Read_CORDEX_V2(nc_path)
     vname, m1, m2, dexp, m3, m4, m5, m6, drange_orignial = metadata 
     if rprt_tme == True:
@@ -64,39 +63,70 @@ def MT_Means_Over_Lake(nc_path, lake_file, lake_num, outputprefix, threeD=True,
         Preview_Lake(lake_cart)        
         print 'Island aware Area(km^2)=', Area_Lake_and_Islands(lake_cart),         
         print ', No. xy lake boundary points=',len(lake_cart.vertices)
+
     lake_rprj = Path_Reproj(lake_cart,False)             
     sub_clim,sub_rlat,sub_rlon = TrimToLake(lake_rprj,clim_dat[0,:,:],rlat,
                                             rlon,off = 3, show = False) 
     weight_mask = Pixel_Weights(lake_rprj,sub_clim,sub_rlat,sub_rlon)
-    sub_orog,sub_rlat,sub_rlon = TrimToLake(lake_rprj,orog[:,:],rlat,
+
+    # If the data can easily be adjusted by height then send it for this calculation
+    type_of_data = clim_dat.standard_name
+    #print 'working on:',type_of_data
+    if ((type_of_data == 'air_temperature')| (type_of_data == 'surface_air_pressure')):
+        orog = Height_CORDEX()                               # Access the height data 
+        lake_altitude=lake_feature['properties']['vfp_mean']
+        sub_orog,sub_rlat,sub_rlon = TrimToLake(lake_rprj,orog[:,:],rlat,
                                             rlon,off = 3, show = False)
-    hght,offset = Orographic_Adjustment(weight_mask,sub_orog,
+        hght,offset = Orographic_Adjustment(weight_mask,sub_orog,
                                         lake_altitude,clim_dat,chatty=False)
+    else:
+        hght = -999.   # If no offset is to calculated then
+        offset = -999. # just set them to missing data.
+
     if plots == True:
         Show_LakeAndData(lake_rprj,clim_dat[0,:,:],rlat,rlon,zoom=8.)
         Preview_Weights(lake_rprj,weight_mask,sub_rlat,sub_rlon)
     if rprt_tme == True:
         c = clock.time()
-    if threeD:
-        sub_clim,sub_rlat,sub_rlon = TrimToLake3D(lake_rprj,clim_dat[:,:,:],rlat,rlon,
+
+    # Here is where the weighting occurs
+    pix_truth = (weight_mask > 0.0)      # Count how many times the weight mask is
+    pxnum = len(weight_mask[pix_truth])  #  above 0.0 (i.e. how many pixels of data are needed)
+
+    if pxnum == 1: # If there is just one pixel, it can be extracted.
+        # Just one pixel to deal with - easy, just pull back the CORDEX data as is.
+
+        # For some reason the TrimToLake3d function takes time when called rather than directly used
+        sub_clim,sub_rlat,sub_rlon = TrimToLake3D(lake_rprj,clim_dat[:,:,:],rlat[:],rlon[:],
+                                                    off = 3, show = False)
+        '''  # HERE IS WHERE IT TAKES TOO LONG 
+        off = 3
+        aclock = clock.time()
+        xxx,yyy = Get_LatLonLim(lake_rprj.vertices)  # Get bounds of a lake
+
+        ymx = (Closest(rlat,yyy[0])) + off         # Gather the max and minimum range
+        ymn = (Closest(rlat,yyy[1])) - off         # also add an offset (measured in pixels)
+        xmx = (Closest(rlon,xxx[0])) + off         # Gather the max and minimum range
+        xmn = (Closest(rlon,xxx[1])) - off         # also add an offset (measured in pixels)
+        bclock = clock.time()
+        print bclock - aclock
+        sub_rlat = rlat[ymn:ymx]
+        sub_rlon = rlon[xmn:xmx]
+        sub_clim = clim_dat[:, ymn:ymx, xmn:xmx]
+'''
+        keypix = weight_mask == 1.
+        tlist = sub_clim[:,keypix]
+
+
+    if pxnum > 1:  
+        # Now, If there is more than one pixel, weighting needs to be applied...
+        sub_clim,sub_rlat,sub_rlon = TrimToLake3D(lake_rprj,clim_dat[:,:,:],rlat[:],rlon[:],
                                                     off = 3, show = False)
         tlist = Weighted_Mean_3D(weight_mask, sub_clim, chatty=False)
-    else:
-        tlist =[]
-        if tt is None:
-            tt = clim_dat.shape[0]
-        for t in xrange(tt):
-            sub_clim,sub_rlat,sub_rlon = TrimToLake(lake_rprj,clim_dat[t,:,:],
-                                                    rlat,rlon,off = 3, show = False)
-            if t == 0 :
-                final_val = Weighted_Mean(weight_mask,sub_clim,chatty=True)
-            else:
-                final_val = Weighted_Mean(weight_mask,sub_clim,chatty=False)
-            tlist.append(final_val)
-            print 'Timestep:',t, ' Weighted tmp. =','%6.2f'%((final_val)-272.15),'C'
-        tlist = np.array(tlist)
+
     if rprt_tme == True:
-        d = clock.time() 
+        d = clock.time()
+
     idnew = EB_id[2:]
     fnm_head = vname+'_'
     hcreate = 'Height offset = %f  Data = %s, Time range = %s  Scenario = %s  Lake = %s'%(\
@@ -109,13 +139,115 @@ def MT_Means_Over_Lake(nc_path, lake_file, lake_num, outputprefix, threeD=True,
                tlist,fmt='%7.3f',newline='\n', header=hcreate)
     if rprt_tme == True:
         e = clock.time()
-        print '\n'
+        #print '\n'
+        print num,' ',EB_id[2:],' Area(km^2)=', Area_Lake_and_Islands(lake_cart),' no pix:',pxnum
         print ('%4.2f sec : Read Data:'%(b-a))
         print ('%4.2f sec : Calculated height offset and Weighting Mask'%(c-b))
         print ('%4.2f sec : Weighted time-series'%(d-c))
-        print ('%4.2f sec : Folder path and file creation'%(d-c))
+        print ('%4.2f sec : Folder path and file creation'%(e-d))
         print ('%4.2f sec : Total'%(e-a))
     return
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+def MT_Gen_SWeights(nc_path, lake_file, lake_num, outputprefix, threeD=True,
+                       tt=None,rprt_tme=False):
+    '''Purpose             This program will generate a surface weight file
+    (in HDF format) tied to a specific dataset (in this case the EUR11 data).
+    These can then be read in after being produced to provide the surface
+    weight for another program, rather than having to re-calculate it again.
+    Inputs
+    Nc_path is the file path for the CORDEX NetCDF file
+    lake_data is file path and filename to GeoJSON file
+    lake_num is the lake number to be processed (the int feature number from 
+    within the lake_data file) outputprefix is the directory for the outputs
+    (it will be then nested according to netcdf file name)
+    Outputs 
+    Adds a lake surface weight (2d array) to a HDF file, with lake hex code as
+    the variable name.
+    '''
+    if rprt_tme == True:
+        a = clock.time()
+    num = lake_num
+    orog = Height_CORDEX()
+    ShapeData = osgeo.ogr.Open(lake_file)
+    TheLayer = ShapeData.GetLayer(iLayer=0)
+    feature1 = TheLayer.GetFeature(num) 
+    lake_feature = feature1.ExportToJson(as_object=True)
+    lake_cart = Path_LkIsl_ShpFile(lake_feature['geometry']['coordinates']) 
+    EB_id = lake_feature['properties']['EBhex']
+    
+
+    lake_altitude=lake_feature['properties']['vfp_mean']
+    clim_dat,rlat,rlon,time,metadata,txtfname = Read_CORDEX_V2(nc_path)
+    vname, m1, m2, dexp, m3, m4, m5, m6, drange_orignial = metadata 
+    if rprt_tme == True:
+        b = clock.time()    
+
+    lake_rprj = Path_Reproj(lake_cart,False)
+
+    sub_clim,sub_rlat,sub_rlon = TrimToLake(lake_rprj,clim_dat[0,:,:],rlat,
+                                            rlon,off = 3, show = False) 
+    weight_mask = Pixel_Weights(lake_rprj,sub_clim,sub_rlat,sub_rlon)
+    if rprt_tme == True:
+        c = clock.time()   
+
+    pix_truth = (weight_mask > 0.0)    # Count how many times the weight mask is
+    pxnum = len(weight_mask[pix_truth])  #  above 0.0 (i.e. how many pixels of data are needed)
+
+    if(pxnum > 1):
+    #if Area_Lake_and_Islands(lake_cart) > 1.0:
+        print num,' ',EB_id[2:],' Area(km^2)=', Area_Lake_and_Islands(lake_cart),' no pix:',pxnum
+    
+    '''
+    idnew = EB_id[2:]
+
+    pathname = os.path.join('Lakes/Surface_test/', idnew)
+    if not os.path.exists(pathname): os.makedirs(pathname)
+    np.savetxt(os.path.join(pathname, txtfname+'txt'),
+               weight_mask,fmt='%7.3f',newline='\n')
+    if rprt_tme == True:
+        e = clock.time()
+        #print '\n'
+        print ('%4.2f sec : to read Data:'%(b-a),idnew)
+        print ('%4.2f sec : to calculate surface weights'%(c-b),idnew)
+    '''
+    return
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -921,8 +1053,7 @@ def TrimToLake3D(lake_in,Cdat,rlat,rlon,off,show):
     ''' Purpose   - To go from the full CORDEX lat lon array (one
         time slice), to a small np.array subset over the immediate
         pixels surrounding the lake (with a few eitherside). This
-        will speed up the execution of the pixel weight calculation
-        code.
+        will speed up the execution of the code in theory...
         
     Input     -  lake_in : A Path object, holding the lake data
               -  Cdat : Climate Data, as a 3D array (time, lat, lon) sliced
@@ -964,6 +1095,59 @@ def TrimToLake3D(lake_in,Cdat,rlat,rlon,off,show):
     sub_rlon = rlon[xmn:xmx]
     data_sub = Cdat[:, ymn:ymx, xmn:xmx]
     return data_sub,sub_rlat,sub_rlon
+
+
+
+def TrimToLake3D_plus(lake_in,Cdat,rlat,rlon,off,show):
+    ''' Purpose   - To go from the full CORDEX lat lon array (one
+        time slice), to a small np.array subset over the immediate
+        pixels surrounding the lake (with a few eitherside). This
+        will speed up the execution of the code in theory.
+        This is a sped-up version of the TrimToLake3D() function.
+        As it appears that that was where some big delay was occuring.
+        
+    Input     -  lake_in : A Path object, holding the lake data
+              -  Cdat : Climate Data, as a 3D array (time, lat, lon) sliced
+                 from the cordex array
+              -  rlat : Rotated Latitude attributes of the Cdat array
+              -  rlon : Rotated Lontiude attributes of the Cdat array
+              -  off  : an offset value (in pixels) to expand the 
+                 area around the lake. By default, if the offset
+                 enterd is less than 3, it will be set to 3 pixels
+                 (as from testing this prevents errors).
+              -  show : A keyword set to either True or False 
+                 depending on if you want to see the result plotted
+                 to the screen or not.
+                        
+    Output    -  data_sub : Np.Array subset of Cdat. This will be
+                 used to create a weighted mask.
+              -  rlat_subs: subset of the rotated latitude
+              -  rlon_subs: subset of the rotated lontiude
+              
+    Example   - grid_subset,subset_rlats,subset_rlons = 
+                Subset_ClimDat(lake_in,climdata[:,:,:],rlat,rlon,
+                show=True)
+    
+    Notes     - The zoom2 factor, is a bit arbitrary, is is designed
+                to include several pixels comfortably either side
+                of the lake. While this may be a waste, and perhaps
+                could be cut, I perfer to leave it in, as the lakes
+                have some unusual shapes, and leaving pixels to work
+                with seems like a good idea for now.
+    '''
+    if ((off < 3) | (off != off)):
+        off = 3
+    xxx,yyy = Get_LatLonLim(lake_in.vertices)  # Get bounds of a lake
+    ymx = (Closest(rlat,yyy[0])) + off         # Gather the max and minimum range
+    ymn = (Closest(rlat,yyy[1])) - off         # also add an offset (measured in pixels)
+    xmx = (Closest(rlon,xxx[0])) + off         # Gather the max and minimum range
+    xmn = (Closest(rlon,xxx[1])) - off         # also add an offset (measured in pixels)
+    sub_rlat = rlat[ymn:ymx]
+    sub_rlon = rlon[xmn:xmx]
+    data_sub = Cdat[:, ymn:ymx, xmn:xmx]
+    return data_sub,sub_rlat,sub_rlon
+
+
 
 
 
