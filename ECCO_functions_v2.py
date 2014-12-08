@@ -54,8 +54,8 @@ def MT_Means_Over_Lake(nc_path, lake_file, lake_num, outputprefix,
     lake_feature = feature1.ExportToJson(as_object=True)
     lake_cart = Path_LkIsl_ShpFile(lake_feature['geometry']['coordinates']) 
     EB_id = lake_feature['properties']['EBhex']
-
     clim_dat,rlat,rlon,time,metadata,txtfname = Read_CORDEX_V2(nc_path)
+
     vname, m1, m2, dexp, m3, m4, m5, m6, drange_orignial = metadata 
     if rprt_tme == True:
         b = clock.time()    
@@ -95,25 +95,12 @@ def MT_Means_Over_Lake(nc_path, lake_file, lake_num, outputprefix,
 
     if pxnum == 1: # If there is just one pixel, it can be extracted.
         # Just one pixel to deal with - easy, just pull back the CORDEX data as is.
+        # Nb. this will take about 6 secs no matter what you do, as the data is stored in memory
+        # as lon, lat ,time with time as the slowest varying (most memory-seperated) variable.
+        # Therefore to collect it all from the memory takes around 6 seconds depending on the HD.
 
-        # For some reason the TrimToLake3d function takes time when called rather than directly used
         sub_clim,sub_rlat,sub_rlon = TrimToLake3D(lake_rprj,clim_dat[:,:,:],rlat[:],rlon[:],
                                                     off = 3, show = False)
-        '''  # HERE IS WHERE IT TAKES TOO LONG 
-        off = 3
-        aclock = clock.time()
-        xxx,yyy = Get_LatLonLim(lake_rprj.vertices)  # Get bounds of a lake
-
-        ymx = (Closest(rlat,yyy[0])) + off         # Gather the max and minimum range
-        ymn = (Closest(rlat,yyy[1])) - off         # also add an offset (measured in pixels)
-        xmx = (Closest(rlon,xxx[0])) + off         # Gather the max and minimum range
-        xmn = (Closest(rlon,xxx[1])) - off         # also add an offset (measured in pixels)
-        bclock = clock.time()
-        print bclock - aclock
-        sub_rlat = rlat[ymn:ymx]
-        sub_rlon = rlon[xmn:xmx]
-        sub_clim = clim_dat[:, ymn:ymx, xmn:xmx]
-'''
         keypix = weight_mask == 1.
         tlist = sub_clim[:,keypix]
 
@@ -177,6 +164,7 @@ def MT_Gen_SWeights(nc_path, lake_file, lake_num, outputprefix, threeD=True,
     Adds a lake surface weight (2d array) to a HDF file, with lake hex code as
     the variable name.
     '''
+    estart = clock.time()
     if rprt_tme == True:
         a = clock.time()
     num = lake_num
@@ -206,10 +194,13 @@ def MT_Gen_SWeights(nc_path, lake_file, lake_num, outputprefix, threeD=True,
     pix_truth = (weight_mask > 0.0)    # Count how many times the weight mask is
     pxnum = len(weight_mask[pix_truth])  #  above 0.0 (i.e. how many pixels of data are needed)
 
-    if(pxnum > 1):
+    #if(pxnum > 1):
     #if Area_Lake_and_Islands(lake_cart) > 1.0:
-        print num,' ',EB_id[2:],' Area(km^2)=', Area_Lake_and_Islands(lake_cart),' no pix:',pxnum
+    #    print num,' ',EB_id[2:],' Area(km^2)=', Area_Lake_and_Islands(lake_cart),' no pix:',pxnum
     
+    etime = clock.time() - estart # (Calculate elapsed time in sec)
+    #print num,EB_id[2:], Area_Lake_and_Islands(lake_cart),pxnum,etime
+# This function is now going to return statistics on the calculations...
     '''
     idnew = EB_id[2:]
 
@@ -223,7 +214,7 @@ def MT_Gen_SWeights(nc_path, lake_file, lake_num, outputprefix, threeD=True,
         print ('%4.2f sec : to read Data:'%(b-a),idnew)
         print ('%4.2f sec : to calculate surface weights'%(c-b),idnew)
     '''
-    return
+    return num,EB_id[2:], Area_Lake_and_Islands(lake_cart),pxnum,etime
 
 
 
