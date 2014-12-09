@@ -56,6 +56,8 @@ def MT_Means_Over_Lake(nc_path, lake_file, lake_num, outputprefix,
     EB_id = lake_feature['properties']['EBhex']
     clim_dat,rlat,rlon,time,metadata,txtfname = Read_CORDEX_V2(nc_path)
 
+    din = clim_dat[:,:,:]
+
     vname, m1, m2, dexp, m3, m4, m5, m6, drange_orignial = metadata 
     if rprt_tme == True:
         b = clock.time()    
@@ -67,7 +69,13 @@ def MT_Means_Over_Lake(nc_path, lake_file, lake_num, outputprefix,
     lake_rprj = Path_Reproj(lake_cart,False)             
     sub_clim,sub_rlat,sub_rlon = TrimToLake(lake_rprj,clim_dat[0,:,:],rlat,
                                             rlon,off = 3, show = False) 
-    weight_mask = Pixel_Weights(lake_rprj,sub_clim,sub_rlat,sub_rlon)
+    tcheck1= clock.time()
+    
+    if num == 266232:
+        weight_mask = np.load('Lakes/Weights/4a8a86.npy')
+    else:
+        weight_mask = Pixel_Weights(lake_rprj,sub_clim,sub_rlat,sub_rlon)
+    print 'Weighted mask:',clock.time() - tcheck1
 
     # If the data can easily be adjusted by height then send it for this calculation
     type_of_data = clim_dat.standard_name
@@ -75,7 +83,7 @@ def MT_Means_Over_Lake(nc_path, lake_file, lake_num, outputprefix,
     if ((type_of_data == 'air_temperature')| (type_of_data == 'surface_air_pressure')):
         orog = Height_CORDEX()                               # Access the height data 
         lake_altitude=lake_feature['properties']['vfp_mean']
-        sub_orog,sub_rlat,sub_rlon = TrimToLake(lake_rprj,orog[:,:],rlat,
+        sub_orog,sub_rlat,sub_rlon = TrimToLake(lake_rprj,orog,rlat,
                                             rlon,off = 3, show = False)
         hght,offset = Orographic_Adjustment(weight_mask,sub_orog,
                                         lake_altitude,clim_dat,chatty=False)
@@ -99,7 +107,7 @@ def MT_Means_Over_Lake(nc_path, lake_file, lake_num, outputprefix,
         # as lon, lat ,time with time as the slowest varying (most memory-seperated) variable.
         # Therefore to collect it all from the memory takes around 6 seconds depending on the HD.
 
-        sub_clim,sub_rlat,sub_rlon = TrimToLake3D(lake_rprj,clim_dat[:,:,:],rlat[:],rlon[:],
+        sub_clim,sub_rlat,sub_rlon = TrimToLake3D(lake_rprj,clim_dat,rlat,rlon,
                                                     off = 3, show = False)
         keypix = weight_mask == 1.
         tlist = sub_clim[:,keypix]
@@ -107,9 +115,16 @@ def MT_Means_Over_Lake(nc_path, lake_file, lake_num, outputprefix,
 
     if pxnum > 1:  
         # Now, If there is more than one pixel, weighting needs to be applied...
-        sub_clim,sub_rlat,sub_rlon = TrimToLake3D(lake_rprj,clim_dat[:,:,:],rlat[:],rlon[:],
+        tcheck2 = clock.time()
+        sub_clim,sub_rlat,sub_rlon = TrimToLake3D(lake_rprj,din,rlat,rlon,
                                                     off = 3, show = False)
+        print 'Trim clim dat to Lake:',clock.time() - tcheck2
+
+        tcheck3 = clock.time()
         tlist = Weighted_Mean_3D(weight_mask, sub_clim, chatty=False)
+        print 'Calc weighted mean:',clock.time() - tcheck3
+
+
 
     if rprt_tme == True:
         d = clock.time()
@@ -150,19 +165,8 @@ def MT_Means_Over_Lake(nc_path, lake_file, lake_num, outputprefix,
 
 def MT_Gen_SWeights(nc_path, lake_file, lake_num, outputprefix, threeD=True,
                        tt=None,rprt_tme=False):
-    '''Purpose             This program will generate a surface weight file
-    (in HDF format) tied to a specific dataset (in this case the EUR11 data).
-    These can then be read in after being produced to provide the surface
-    weight for another program, rather than having to re-calculate it again.
-    Inputs
-    Nc_path is the file path for the CORDEX NetCDF file
-    lake_data is file path and filename to GeoJSON file
-    lake_num is the lake number to be processed (the int feature number from 
-    within the lake_data file) outputprefix is the directory for the outputs
-    (it will be then nested according to netcdf file name)
-    Outputs 
-    Adds a lake surface weight (2d array) to a HDF file, with lake hex code as
-    the variable name.
+    '''Purpose             This program Generates metadata files used to speed
+    up the final runs.
     '''
     estart = clock.time()
     if rprt_tme == True:
@@ -193,42 +197,67 @@ def MT_Gen_SWeights(nc_path, lake_file, lake_num, outputprefix, threeD=True,
 
     pix_truth = (weight_mask > 0.0)    # Count how many times the weight mask is
     pxnum = len(weight_mask[pix_truth])  #  above 0.0 (i.e. how many pixels of data are needed)
-
-    #if(pxnum > 1):
-    #if Area_Lake_and_Islands(lake_cart) > 1.0:
-    #    print num,' ',EB_id[2:],' Area(km^2)=', Area_Lake_and_Islands(lake_cart),' no pix:',pxnum
     
     etime = clock.time() - estart # (Calculate elapsed time in sec)
-    #print num,EB_id[2:], Area_Lake_and_Islands(lake_cart),pxnum,etime
-# This function is now going to return statistics on the calculations...
-    '''
-    idnew = EB_id[2:]
+    # Calculate the CORDEX pixels (useful only for 1-pixel lakes)
+    ypix = -99
+    xpix = -99
+    if pxnum == 1:
+        xxx,yyy = Get_LatLonLim(lake_rprj.vertices)  # Find upp./low.lake lims.
+        ypix = (Closest(rlat,yyy[0]))                # For lakes of one pixel  
+        xpix = (Closest(rlon,xxx[0]))
+    if pxnum < 1:
+        pxnum = 1  # Small bug where it thinks lakes dont exist, no biggy...
 
-    pathname = os.path.join('Lakes/Surface_test/', idnew)
-    if not os.path.exists(pathname): os.makedirs(pathname)
-    np.savetxt(os.path.join(pathname, txtfname+'txt'),
-               weight_mask,fmt='%7.3f',newline='\n')
+    return num,EB_id[2:], Area_Lake_and_Islands(lake_cart),pxnum,etime,ypix,xpix
+
+
+
+
+
+
+
+
+
+
+def Weight_Speedup(nc_path, lake_file, lake_num, outputprefix,
+                       tt=None,plots = False,rprt_tme=False):
+    '''Purpose             
+    This program generates the weighted mean files for specified lakes
+    (the slow ones), to be read back in when processing later for a 
+    big speed boost!
+    This only needs to be run one time. 
+    '''
+    a = clock.time()
+    num = lake_num
+    ShapeData = osgeo.ogr.Open(lake_file)
+    TheLayer = ShapeData.GetLayer(iLayer=0)
+    feature1 = TheLayer.GetFeature(num) 
+    lake_feature = feature1.ExportToJson(as_object=True)
+    lake_cart = Path_LkIsl_ShpFile(lake_feature['geometry']['coordinates']) 
+    EB_id = lake_feature['properties']['EBhex']
+    clim_dat,rlat,rlon,time,metadata,txtfname = Read_CORDEX_V2(nc_path)
+
+    #din = clim_dat[:,:,:]
+
+    vname, m1, m2, dexp, m3, m4, m5, m6, drange_orignial = metadata 
     if rprt_tme == True:
-        e = clock.time()
-        #print '\n'
-        print ('%4.2f sec : to read Data:'%(b-a),idnew)
-        print ('%4.2f sec : to calculate surface weights'%(c-b),idnew)
-    '''
-    return num,EB_id[2:], Area_Lake_and_Islands(lake_cart),pxnum,etime
+        b = clock.time()    
+    if plots == True:
+        Preview_Lake(lake_cart)        
+        print 'Island aware Area(km^2)=', Area_Lake_and_Islands(lake_cart),         
+        print ', No. xy lake boundary points=',len(lake_cart.vertices)
 
+    lake_rprj = Path_Reproj(lake_cart,False)             
+    sub_clim,sub_rlat,sub_rlon = TrimToLake(lake_rprj,clim_dat[0,:,:],rlat,
+                                            rlon,off = 3, show = False) 
+    tcheck1= clock.time()
+    weight_mask = Pixel_Weights(lake_rprj,sub_clim,sub_rlat,sub_rlon)
 
+    np.save('Lakes/Weights/'+EB_id[2:],weight_mask)
+    print 'Generated ',EB_id[2:],' in ',clock.time()-a
 
-
-
-
-
-
-
-
-
-
-
-
+    return
 
 
 
