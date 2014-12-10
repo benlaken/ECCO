@@ -597,6 +597,23 @@ def Gen_FName_Head(long_name):
     return fnm_head
 
 
+def OnePix_HOffset(lake_altitude,orog,var_type):
+    ''' Purpose    -   To replace the height offset calculation for cases where only one pixel
+                       is needed (and has already been identified in preprocessed metadata).
+                       This speeds up program execution.I.e. Replaces Orographic_Adjustment()
+                       in most cases.
+    '''
+    if (var_type == 'air_temperature'): 
+            ELR = 6.49/1000.                        # Environmental lapse rate of 6.49K/1,000m
+            offset = (orog - lake_altitude) * ELR
+    elif(var_type == 'surface_air_pressure'):
+            Pchng = 1200./100.                      # Pressue change of 1.2kPa/100m
+            offset = (orog - lake_altitude) * Pchng
+    else:
+        offset = -999.                              # Missing val. if not temp. or press. data
+    return offset
+
+
 def Orographic_Adjustment(weight_mask,orog,lake_altitude,clim_dat,chatty):
     '''Purpose    - Reads in the 2D weight mask (from Pixel_Weights 
     function) and the trimmed data from TrimToLake and returns a
