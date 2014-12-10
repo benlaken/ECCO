@@ -1,6 +1,9 @@
 import numpy as np
-import sys, time, os, json
-from netCDF4 import Dataset  
+import sys
+import json
+import pandas as pd
+from netCDF4 import Dataset
+from netCDF4 import num2date, date2num
 from matplotlib.path import Path
 from matplotlib import cm
 import matplotlib.patches as patches
@@ -9,14 +12,183 @@ from matplotlib.transforms import Bbox
 from math import pi, cos, sin, radians, atan, asin
 import mpl_toolkits.basemap.pyproj as pyproj
 import matplotlib.pyplot as plt
+import glob
 import os
 import time
 import time as clock
 import osgeo.ogr
 
-# NB the only diffrence between v2 (this file) and the original are that these
-# functions are set up to work with the input file for the lakes as a shape file
-# whereas the earlier code relied on a GeoJSON format.
+
+
+def Fast_v3(nc_path, lake_file, outputprefix,lstart=0,lstop=275264,
+                       hexlist=None,tt=None,plots = False,rprt=False,sbar=False,
+                       rprt_loop=False):
+    # Better documentation coming soon, to code near you!
+    # Input:
+    #
+    #       hexlist      If not None, this must be a list of hexcodes which match lake codes.
+    #                    These codes will be the list of lakes to be processed, with
+    #                    (regardless of lstart / lstop settings). The list should be ascii values
+    #                    in any order. E.g. hexlist = ['a2204','155980','d23e4a','7aa917']
+    #
+    # k.w.agrs:   
+    #
+    #       plots        True or False(default). If True, preview plots are created. I reccomend
+    #                    using this feature carefully. Unless you have set a very small number of
+    #                    lakes, this will produce a huge number of plots!
+    #
+    #       rprt         Returns information on how long the program took to load the data,
+    #                    complete, and how many lakes were processed.
+    #    
+    #       rprt_loop    Returns info on how long each specific lake took (can be a lot...)
+    #
+    #       sbar         Create a status bar, to show the progression through a large loop. Not
+    #                    shown by default. As, when this pro is on MPI it is not a good feature.
+    #
+    # Notes:       Out of 275265 total lakes, 264532 of them are within one pixel of EUR-11 data.
+    #              Metadata called from lake hexcode as index: not shapefile feature number.
+    #----------------------------------------------------------------------------------------------
+    #
+    # 1. LOADING DATA SECTION
+    if rprt == True:
+        atime = clock.time()
+
+    lk_processed_inf = pd.read_csv('Lakes/Meta_Lakes.csv')  # Pre-processed lake metadata (CSV)
+    lk_processed_inf.index = lk_processed_inf.hex           # Use the hex-code column as the index 
+    
+    ShapeData = osgeo.ogr.Open(lake_file)                  # Make a link to Lake Shape Files
+    TheLayer = ShapeData.GetLayer(iLayer=0)
+    
+    clim_dat,rlat,rlon,timeCDX,metadata,txtfname = Read_CORDEX_V2(nc_path) # CORDEX NetCDF Read file
+    vname, m1, m2, dexp, m3, m4, m5, m6, drange_orignial = metadata     # Metadata of fname string
+    var_type = clim_dat.standard_name                                   # What kind of CORDEX data?
+    dat_loaded = clim_dat[:,:,:]                                        # Load CORDEX data into RAM
+    
+    orog = Height_CORDEX()                                 # NetCDF EUR-11 surface height data 
+    
+    precalculated = []                                     # Gather precalculated surface weights 
+    for fnm in glob.glob("Lakes/Weights/*.npy"):           # N.b. You can precalculate as many as you
+        precalculated.append(fnm[14:-4])                   # like: place in folder to run (for speed)
+    precalculated = np.array(precalculated)                # Make it a np.array (needed for functions)
+    
+    if hexlist == None:                                    # Set up the list of lakes to process:
+        dolakes=np.arange(lstart,lstop,1)          #If no Hexcodes, use lstart/lstop to form a list
+    else:
+        dolakes= lk_processed_inf.num[test]     #If hexcodes, then gen. list of nums from PD object
+    
+    thefilename = 'Lakes_'+str.split(nc_path,'/')[-1]
+    fileout = Dataset(outputprefix+thefilename, 'w', format='NETCDF4')  # Open netcdf file for creation
+    time = fileout.createDimension('time', None)
+    times = fileout.createVariable('time','f8',('time',))
+    
+    times[:] = timeCDX[:]                           # Feed the netcdf data the CORDEX time variable
+    times.units = timeCDX.units
+    times.standard_name = timeCDX.standard_name
+    #-----------------------------------------------------------------------------------------------
+    # 2. LOOP OVER ALL LAKES (or specified lakes from lstart to lstop)
+    if rprt == True:
+        btime = clock.time()
+    if sbar ==True:
+        icnt = 0
+    for n in dolakes:
+        tlist = []
+        if rprt_loop == True:
+            ltime = clock.time()
+        
+        feature1 = TheLayer.GetFeature(n)           # Get individ. lake in shapefile
+        lake_feature = feature1.ExportToJson(as_object=True)
+        lake_cart = Path_LkIsl_ShpFile(lake_feature['geometry']['coordinates'])
+        lake_altitude=lake_feature['properties']['vfp_mean']
+        EB_id = lake_feature['properties']['EBhex']
+        EB_id = EB_id[2:]                           # Strip off the hexcode label 0x
+        lake_rprj = Path_Reproj(lake_cart,False)    # Reproj. lake to CORDEX plr. rotated
+        if rprt_loop == True:
+            print 'Check:',n,EB_id,lk_processed_inf.hex[EB_id],lk_processed_inf.npix[EB_id]
+        
+        if EB_id != lk_processed_inf.index[n]:      # Some handy error check
+            print 'Warning! Lake feature and metadata miss-match for some reason. Check it out:'
+            print 'Problem at:',num,lk_processed_inf.num[n],EB_id[2:],lk_processed_inf.index[n]
+    
+        if plots == True:     
+            Preview_Lake(lake_cart)        
+            print 'Area in km^2 (not inc. islands):', Area_Lake_and_Islands(lake_cart),         
+            print ', No. xy bound. points:',len(lake_cart.vertices)
+
+        if lk_processed_inf.npix[EB_id] == 1:         # ONE PIXEL LAKES <<<
+            ypix = lk_processed_inf.ypix[EB_id]       # Get the pre-calc. pixel indexes...
+            xpix = lk_processed_inf.xpix[EB_id]       # ...calc in MT_Gen_SWeights() earlier
+            offset = OnePix_HOffset(lake_altitude,orog[ypix, xpix],var_type)
+            tlist = dat_loaded[:, ypix, xpix]  
+            #print n,EB_id,' Offset:',offset
+            if rprt_loop == True:
+                print '1pix, only slicing. Time:',clock.time() - ltime
+        
+        else:                                         # LAKES OF MORE THAN ONE PIXEL <<<
+            pre_test = (lk_processed_inf.hex[EB_id] == precalculated)
+            if(any(pre_test) == True):                # Scipy's any() evalautes list truth
+                #print 'Using precalculated weight:', precalculated[pre_test][0]+'.npy'
+                weightfile = 'Lakes/Weights/'+precalculated[pre_test][0]+'.npy'
+                weight_mask = np.load(weightfile)
+                #plt.imshow(weight_mask,interpolation='none')
+            else:  # If no pre-calculated weight mask file then calculate it now.
+                sub_clim,sub_rlat,sub_rlon = TrimToLake(lake_rprj,dat_loaded[0,:,:],rlat,
+                                                        rlon,off = 3, show = False) 
+                weight_mask = Pixel_Weights(lake_rprj,sub_clim,sub_rlat,sub_rlon)
+                #print 'Gone old skool'
+            # I now have a weighted_mask, regardless of if it was read in or calculated now.
+            if ((var_type == 'air_temperature')| (var_type == 'surface_air_pressure')): 
+                sub_orog,sub_rlat,sub_rlon = TrimToLake(lake_rprj,orog,rlat,
+                                                            rlon,off = 3, show = False)
+                hght,offset = Orographic_Adjustment(weight_mask,sub_orog,
+                                                        lake_altitude,clim_dat,chatty=False)
+            else:
+                hght = -999.                         # If no offset calculated then
+                offset = -999.                       # just set them to missing data
+            
+            sub_clim,sub_rlat,sub_rlon = TrimToLake3D(lake_rprj,dat_loaded,rlat,rlon,
+                                                      off = 3, show = False)
+            tlist = Weighted_Mean_3D(weight_mask, sub_clim, chatty=False)  # Here's the t-series
+            tlist = np.squeeze(tlist)                                      # Remove empty dimension
+            
+            if plots == True:
+                Show_LakeAndData(lake_rprj,dat_loaded[0,:,:],rlat,rlon,zoom=6.)
+                Preview_Weights(lake_rprj,weight_mask,sub_rlat,sub_rlon) 
+            
+            if rprt_loop == True:
+                print '>2pix, weighting needed. Time:',clock.time() - ltime
+            
+        if sbar ==True:
+            icnt=icnt+1
+            if (float(icnt) % 10.) == 0.0:
+                Update_Progress(float(icnt)/float(len(dolakes)-1))
+
+        lake = fileout.createGroup(EB_id)                         # Write out tlist to NetCDF file
+        values = lake.createVariable('values','f4',('time',))
+        values.standard_name=clim_dat.standard_name
+        values.long_name=clim_dat.long_name
+        values.units=clim_dat.units
+        values.lake_area=str(lk_processed_inf.area[n])+'km^2'
+        values.height_adjustment=str(offset)
+        values[:] =  tlist                                # Finally, write the data to the netcdf Group
+
+    fileout.close()                 
+    if rprt == True:
+        ctime = clock.time()
+    #-------------------------------------------------------------------------------------------
+    # 3. Finish and report if requested
+    if rprt == True:
+            print '\nTime to read data: %4.2f sec'%(btime - atime)
+            print 'Time to Process %i lakes: %4.2f sec'%(len(dolakes),ctime - btime)
+    return
+
+
+
+
+
+
+
+
+
 
 def MT_Means_Over_Lake(nc_path, lake_file, lake_num, outputprefix,
                        tt=None,plots = False,rprt_tme=False):
@@ -1211,7 +1383,7 @@ def Update_Progress(progress):
         status = "Halt...\r\n"
     if progress >= 1:
         progress = 1
-        status = "Done...\r\n"
+        status = "\r\n"
     block = int(round(barLength*progress))
     text = "\rProgress: [{0}] {1}% {2}".format( "#"*block + "-"*(barLength-block), int(progress*100), status)
     sys.stdout.write(text)
