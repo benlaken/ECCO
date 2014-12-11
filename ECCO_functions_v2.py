@@ -162,14 +162,21 @@ def Fast_v3(nc_path, lake_file, outputprefix,lstart=0,lstop=275264,
             if (float(icnt) % 10.) == 0.0:
                 Update_Progress(float(icnt)/float(len(dolakes)-1))
 
-        lake = fileout.createGroup(EB_id)                         # Write out tlist to NetCDF file
-        values = lake.createVariable('values','f4',('time',))
-        values.standard_name=clim_dat.standard_name
-        values.long_name=clim_dat.long_name
-        values.units=clim_dat.units
-        values.lake_area=str(lk_processed_inf.area[n])+'km^2'
-        values.height_adjustment=str(offset)
-        values[:] =  tlist                                # Finally, write the data to the netcdf Group
+        #lake = fileout.createGroup(EB_id)                         # Write out tlist to NetCDF file
+        #values = lake.createVariable('values','f4',('time',))
+        #values.standard_name=clim_dat.standard_name
+        #values.long_name=clim_dat.long_name
+        #values.units=clim_dat.units
+        #values.lake_area=str(lk_processed_inf.area[n])+'km^2'
+        #values.height_adjustment=str(offset)
+        #values[:] =  tlist                                # Finally, write the data to the netcdf Group
+
+        nc_write_func(fileout,EB_id,clim_dat.standard_name,clim_dat.long_name,  # Memory management
+                       clim_dat.units,lk_processed_inf.area[n],tlist)           # solution  
+        feature1=0
+        lake_feature = 0
+
+
 
     fileout.close()                 
     if rprt == True:
@@ -181,7 +188,21 @@ def Fast_v3(nc_path, lake_file, outputprefix,lstart=0,lstop=275264,
             print 'Time to Process %i lakes: %4.2f sec'%(len(dolakes),ctime - btime)
     return
 
-
+def nc_write_func(fileout,EB_id,standard_name,long_name,units,area,tlist):
+    ''' Write a variable to an open NC file. This is done inside
+    a function because, when the function is left, all entries in
+    the namespace dissapear. Hence, the non-bug in NetCDF4 of
+    bleeding memory in loops is no issue.
+    '''
+    lake = fileout.createGroup(EB_id)                       
+    values = lake.createVariable('values','f4',('time',))   #,zlib=True,least_significant_digit=3)
+    values.standard_name=standard_name
+    values.long_name=long_name
+    values.units=units
+    values.lake_area=str(area)+'km^2'
+    values.height_adjustment=str(-99.)
+    values[:] = tlist
+    return
 
 
 
