@@ -116,28 +116,30 @@ def Fast_v3(nc_path, lake_file, outputprefix,lstart=0,lstop=275264,
         if lk_processed_inf.npix[EB_id] == 1:         # ONE PIXEL LAKES <<<
             ypix = lk_processed_inf.ypix[EB_id]       # Get the pre-calc. pixel indexes...
             xpix = lk_processed_inf.xpix[EB_id]       # ...calc in MT_Gen_SWeights() earlier
-            offset = OnePix_HOffset(lake_altitude,orog[ypix, xpix],var_type)
-            tlist = dat_loaded[:, ypix, xpix]  
-            #print n,EB_id,' Offset:',offset
+            if lake_altitude == None:                 # Some lakes don't have alitude values
+                offset = -999.
+            else:
+                offset = OnePix_HOffset(lake_altitude,orog[ypix, xpix],var_type)
+            tlist = dat_loaded[:, ypix, xpix]
             if rprt_loop == True:
                 print '1pix, only slicing. Time:',clock.time() - ltime
         else:                                         # LAKES OF MORE THAN ONE PIXEL <<<
             pre_test = (lk_processed_inf.hex[EB_id] == precalculated)
             if(any(pre_test) == True):                # Scipy's any() evalautes list truth
-                #print 'Using precalculated weight:', precalculated[pre_test][0]+'.npy'
                 weightfile = 'Lakes/Weights/'+precalculated[pre_test][0]+'.npy'
                 weight_mask = np.load(weightfile)
-                #plt.imshow(weight_mask,interpolation='none')
-            else:  # If no pre-calculated weight mask file then calculate it now.
+            else:  # If no pre-calculated weight mask file then calculate it now
                 sub_clim,sub_rlat,sub_rlon = TrimToLake(lake_rprj,dat_loaded[0,:,:],rlat,
                                                         rlon,off = 3, show = False) 
                 weight_mask = Pixel_Weights(lake_rprj,sub_clim,sub_rlat,sub_rlon)
-                #print 'Gone old skool'
-            # I now have a weighted_mask, regardless of if it was read in or calculated now.
             if ((var_type == 'air_temperature')| (var_type == 'surface_air_pressure')): 
                 sub_orog,sub_rlat,sub_rlon = TrimToLake(lake_rprj,orog,rlat,
                                                             rlon,off = 3, show = False)
-                hght,offset = Orographic_Adjustment(weight_mask,sub_orog,
+                #print 'Stats 2:',n,EB_id,lake_altitude
+                if lake_altitude == None:                 # Some lakes don't have alitude values
+                    offset = -999.
+                else:
+                    hght,offset = Orographic_Adjustment(weight_mask,sub_orog,
                                                         lake_altitude,clim_dat,chatty=False)
             else:
                 hght = -999.                         # If no offset calculated then
@@ -154,7 +156,9 @@ def Fast_v3(nc_path, lake_file, outputprefix,lstart=0,lstop=275264,
             
             if rprt_loop == True:
                 print '>2pix, weighting needed. Time:',clock.time() - ltime
-            
+                
+        if rprt_loop ==True:
+            print 'Stats:',n,EB_id,offset,lake_altitude
         if sbar ==True:
             icnt=icnt+1
             if (float(icnt) % 10.) == 0.0:
