@@ -15,6 +15,7 @@ import matplotlib.pyplot as plt
 import glob
 import os
 import time
+import h5py
 import time as clock
 import osgeo.ogr
 
@@ -76,14 +77,16 @@ def Fast_v3(nc_path, lake_file, outputprefix,lstart=0,lstop=275264,
     else:
         dolakes= lk_processed_inf.num[test]     #If hexcodes, then gen. list of nums from PD object
     
-    thefilename = 'Lakes_'+str.split(nc_path,'/')[-1]
-    fileout = Dataset(outputprefix+thefilename, 'w', format='NETCDF4')  # Open netcdf file for creation
-    time = fileout.createDimension('time', None)
-    times = fileout.createVariable('time','f8',('time',))
-    
-    times[:] = timeCDX[:]                           # Feed the netcdf data the CORDEX time variable
-    times.units = timeCDX.units
-    times.standard_name = timeCDX.standard_name
+    thefilename = 'Lakes_'+str.split(nc_path,'/')[-1][:-3]
+    # Set up HDF5 file output
+    FILE= outputprefix + thefilename +'.h5'
+    #print FILE
+    if os.path.isfile(FILE) == True:
+        print 'Earlier file already exists: Overwriting...'
+        os.remove(FILE)
+    else:
+        print 'No file found. Creating: ',FILE
+    f = h5py.File(FILE,'w')
     #-----------------------------------------------------------------------------------------------
     # 2. LOOP OVER ALL LAKES (or specified lakes from lstart to lstop)
     if rprt == True:
@@ -94,7 +97,6 @@ def Fast_v3(nc_path, lake_file, outputprefix,lstart=0,lstop=275264,
         tlist = []
         if rprt_loop == True:
             ltime = clock.time()
-        
         feature1 = TheLayer.GetFeature(n)           # Get individ. lake in shapefile
         lake_feature = feature1.ExportToJson(as_object=True)
         lake_cart = Path_LkIsl_ShpFile(lake_feature['geometry']['coordinates'])
@@ -104,16 +106,13 @@ def Fast_v3(nc_path, lake_file, outputprefix,lstart=0,lstop=275264,
         lake_rprj = Path_Reproj(lake_cart,False)    # Reproj. lake to CORDEX plr. rotated
         if rprt_loop == True:
             print 'Check:',n,EB_id,lk_processed_inf.hex[EB_id],lk_processed_inf.npix[EB_id]
-        
         if EB_id != lk_processed_inf.index[n]:      # Some handy error check
             print 'Warning! Lake feature and metadata miss-match for some reason. Check it out:'
             print 'Problem at:',num,lk_processed_inf.num[n],EB_id[2:],lk_processed_inf.index[n]
-    
         if plots == True:     
             Preview_Lake(lake_cart)        
             print 'Area in km^2 (not inc. islands):', Area_Lake_and_Islands(lake_cart),         
             print ', No. xy bound. points:',len(lake_cart.vertices)
-
         if lk_processed_inf.npix[EB_id] == 1:         # ONE PIXEL LAKES <<<
             ypix = lk_processed_inf.ypix[EB_id]       # Get the pre-calc. pixel indexes...
             xpix = lk_processed_inf.xpix[EB_id]       # ...calc in MT_Gen_SWeights() earlier
@@ -122,7 +121,6 @@ def Fast_v3(nc_path, lake_file, outputprefix,lstart=0,lstop=275264,
             #print n,EB_id,' Offset:',offset
             if rprt_loop == True:
                 print '1pix, only slicing. Time:',clock.time() - ltime
-        
         else:                                         # LAKES OF MORE THAN ONE PIXEL <<<
             pre_test = (lk_processed_inf.hex[EB_id] == precalculated)
             if(any(pre_test) == True):                # Scipy's any() evalautes list truth
@@ -162,23 +160,11 @@ def Fast_v3(nc_path, lake_file, outputprefix,lstart=0,lstop=275264,
             if (float(icnt) % 10.) == 0.0:
                 Update_Progress(float(icnt)/float(len(dolakes)-1))
 
-        #lake = fileout.createGroup(EB_id)                         # Write out tlist to NetCDF file
-        #values = lake.createVariable('values','f4',('time',))
-        #values.standard_name=clim_dat.standard_name
-        #values.long_name=clim_dat.long_name
-        #values.units=clim_dat.units
-        #values.lake_area=str(lk_processed_inf.area[n])+'km^2'
-        #values.height_adjustment=str(offset)
-        #values[:] =  tlist                                # Finally, write the data to the netcdf Group
-
-        nc_write_func(fileout,EB_id,clim_dat.standard_name,clim_dat.long_name,  # Memory management
-                       clim_dat.units,lk_processed_inf.area[n],tlist)           # solution  
+        Write_HDF(f,EB_id,tlist,offset,lk_processed_inf.area[n])  # Write inside function
         feature1=0
         lake_feature = 0
 
-
-
-    fileout.close()                 
+    f.close()                                # Close the HDF5 file after the lake loop finishes                
     if rprt == True:
         ctime = clock.time()
     #-------------------------------------------------------------------------------------------
@@ -188,11 +174,13 @@ def Fast_v3(nc_path, lake_file, outputprefix,lstart=0,lstop=275264,
             print 'Time to Process %i lakes: %4.2f sec'%(len(dolakes),ctime - btime)
     return
 
+
 def nc_write_func(fileout,EB_id,standard_name,long_name,units,area,tlist):
     ''' Write a variable to an open NC file. This is done inside
     a function because, when the function is left, all entries in
     the namespace dissapear. Hence, the non-bug in NetCDF4 of
     bleeding memory in loops is no issue.
+    This was just for testing. It turns out the HDF5 is way more efficent here.
     '''
     lake = fileout.createGroup(EB_id)                       
     values = lake.createVariable('values','f4',('time',))   #,zlib=True,least_significant_digit=3)
@@ -204,7 +192,16 @@ def nc_write_func(fileout,EB_id,standard_name,long_name,units,area,tlist):
     values[:] = tlist
     return
 
-
+def Write_HDF(f,EB_id,tlist,offset,area):
+    '''
+    Simple writing using H5py module in HDF5 format.
+    (This should be used for the final program)
+    '''
+    dset = f.create_dataset(EB_id,(len(tlist),),dtype='f')
+    dset.attrs['Area']=area
+    dset.attrs['Offset']=offset
+    dset[...]=tlist
+    return
 
 
 
