@@ -21,7 +21,7 @@ import osgeo.ogr
 
 
 
-def Fast_v3(nc_path, lake_file, outputprefix,lstart=0,lstop=275264,
+def Fast_v3(nc_path, lake_file, outputprefix,lstart=0,lstop=275265,
                        hexlist=None,tt=None,plots = False,rprt=False,sbar=False,
                        rprt_loop=False):
     # Better documentation coming soon, to code near you!
@@ -54,7 +54,7 @@ def Fast_v3(nc_path, lake_file, outputprefix,lstart=0,lstop=275264,
     if rprt == True:
         atime = clock.time()
 
-    lk_processed_inf = pd.read_csv('Lakes/Meta_Lakes.csv')  # Pre-processed lake metadata (CSV)
+    lk_processed_inf = pd.read_csv('Metadata/Meta_Lakes.csv')  # Pre-processed lake metadata (CSV)
     lk_processed_inf.index = lk_processed_inf.hex           # Use the hex-code column as the index 
     
     ShapeData = osgeo.ogr.Open(lake_file)                  # Make a link to Lake Shape Files
@@ -64,11 +64,13 @@ def Fast_v3(nc_path, lake_file, outputprefix,lstart=0,lstop=275264,
     vname, m1, m2, dexp, m3, m4, m5, m6, drange_orignial = metadata     # Metadata of fname string
     var_type = clim_dat.standard_name                                   # What kind of CORDEX data?
     dat_loaded = clim_dat[:,:,:]                                        # Load CORDEX data into RAM
+    rlat_loaded = rlat[:]
+    rlon_loaded = rlon[:]
     
     orog = Height_CORDEX()                                 # NetCDF EUR-11 surface height data 
     
     precalculated = []                                     # Gather precalculated surface weights 
-    for fnm in glob.glob("Lakes/Weights/*.npy"):           # N.b. You can precalculate as many as you
+    for fnm in glob.glob("Metadata/Weights/*.npy"):           # N.b. You can precalculate as many as you
         precalculated.append(fnm[14:-4])                   # like: place in folder to run (for speed)
     precalculated = np.array(precalculated)                # Make it a np.array (needed for functions)
     
@@ -95,8 +97,8 @@ def Fast_v3(nc_path, lake_file, outputprefix,lstart=0,lstop=275264,
         icnt = 0
     for n in dolakes:
         tlist = []
-        if rprt_loop == True:
-            ltime = clock.time()
+        #if rprt_loop == True:
+        #    ltime = clock.time()
         feature1 = TheLayer.GetFeature(n)           # Get individ. lake in shapefile
         lake_feature = feature1.ExportToJson(as_object=True)
         lake_cart = Path_LkIsl_ShpFile(lake_feature['geometry']['coordinates'])
@@ -104,8 +106,8 @@ def Fast_v3(nc_path, lake_file, outputprefix,lstart=0,lstop=275264,
         EB_id = lake_feature['properties']['EBhex']
         EB_id = EB_id[2:]                           # Strip off the hexcode label 0x
         lake_rprj = Path_Reproj(lake_cart,False)    # Reproj. lake to CORDEX plr. rotated
-        if rprt_loop == True:
-            print 'Check:',n,EB_id,lk_processed_inf.hex[EB_id],lk_processed_inf.npix[EB_id]
+        #if rprt_loop == True:
+        #    print '\rCheck:',n,EB_id,lk_processed_inf.hex[EB_id],lk_processed_inf.npix[EB_id],
         if EB_id != lk_processed_inf.index[n]:      # Some handy error check
             print 'Warning! Lake feature and metadata miss-match for some reason. Check it out:'
             print 'Problem at:',num,lk_processed_inf.num[n],EB_id[2:],lk_processed_inf.index[n]
@@ -121,20 +123,20 @@ def Fast_v3(nc_path, lake_file, outputprefix,lstart=0,lstop=275264,
             else:
                 offset = OnePix_HOffset(lake_altitude,orog[ypix, xpix],var_type)
             tlist = dat_loaded[:, ypix, xpix]
-            if rprt_loop == True:
-                print '1pix, only slicing. Time:',clock.time() - ltime
+            #if rprt_loop == True:
+            #    print '1pix, only slicing. Time:',clock.time() - ltime
         else:                                         # LAKES OF MORE THAN ONE PIXEL <<<
             pre_test = (lk_processed_inf.hex[EB_id] == precalculated)
             if(any(pre_test) == True):                # Scipy's any() evalautes list truth
-                weightfile = 'Lakes/Weights/'+precalculated[pre_test][0]+'.npy'
+                weightfile = 'Metadata/Weights/'+precalculated[pre_test][0]+'.npy'
                 weight_mask = np.load(weightfile)
             else:  # If no pre-calculated weight mask file then calculate it now
-                sub_clim,sub_rlat,sub_rlon = TrimToLake(lake_rprj,dat_loaded[0,:,:],rlat,
-                                                        rlon,off = 3, show = False) 
+                sub_clim,sub_rlat,sub_rlon = TrimToLake(lake_rprj,dat_loaded[0,:,:],rlat_loaded,
+                                                        rlon_loaded,off = 3, show = False) 
                 weight_mask = Pixel_Weights(lake_rprj,sub_clim,sub_rlat,sub_rlon)
             if ((var_type == 'air_temperature')| (var_type == 'surface_air_pressure')): 
-                sub_orog,sub_rlat,sub_rlon = TrimToLake(lake_rprj,orog,rlat,
-                                                            rlon,off = 3, show = False)
+                sub_orog,sub_rlat,sub_rlon = TrimToLake(lake_rprj,orog,rlat_loaded,
+                                                            rlon_loaded,off = 3, show = False)
                 #print 'Stats 2:',n,EB_id,lake_altitude
                 if lake_altitude == None:                 # Some lakes don't have alitude values
                     offset = -999.
@@ -145,7 +147,7 @@ def Fast_v3(nc_path, lake_file, outputprefix,lstart=0,lstop=275264,
                 hght = -999.                         # If no offset calculated then
                 offset = -999.                       # just set them to missing data
             
-            sub_clim,sub_rlat,sub_rlon = TrimToLake3D(lake_rprj,dat_loaded,rlat,rlon,
+            sub_clim,sub_rlat,sub_rlon = TrimToLake3D(lake_rprj,dat_loaded,rlat_loaded,rlon_loaded,
                                                       off = 3, show = False)
             tlist = Weighted_Mean_3D(weight_mask, sub_clim, chatty=False)  # Here's the t-series
             tlist = np.squeeze(tlist)                                      # Remove empty dimension
@@ -154,11 +156,11 @@ def Fast_v3(nc_path, lake_file, outputprefix,lstart=0,lstop=275264,
                 Show_LakeAndData(lake_rprj,dat_loaded[0,:,:],rlat,rlon,zoom=6.)
                 Preview_Weights(lake_rprj,weight_mask,sub_rlat,sub_rlon) 
             
-            if rprt_loop == True:
-                print '>2pix, weighting needed. Time:',clock.time() - ltime
+            #if rprt_loop == True:
+            #    print '\r>2pix, weighting needed. Time:',clock.time() - ltime,
                 
         if rprt_loop ==True:
-            print 'Stats:',n,EB_id,offset,lake_altitude
+            print '\rStats:',(float(n)/float(lstop))*100.,'% ',n,EB_id,offset,lake_altitude,
         if sbar ==True:
             icnt=icnt+1
             if (float(icnt) % 10.) == 0.0:
