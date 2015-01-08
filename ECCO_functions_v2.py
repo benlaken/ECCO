@@ -102,7 +102,7 @@ def Fast_v3(nc_path, lake_file, outputprefix,lstart=0,lstop=275265,
         feature1 = TheLayer.GetFeature(n)           # Get individ. lake in shapefile
         lake_feature = feature1.ExportToJson(as_object=True)
         lake_cart = Path_LkIsl_ShpFile(lake_feature['geometry']['coordinates'])
-        lake_altitude=lake_feature['properties']['vfp_mean']
+        lake_altitude=lake_feature['properties']['stf_mean']
         EB_id = lake_feature['properties']['EBhex']
         EB_id = EB_id[2:]                           # Strip off the hexcode label 0x
         lake_rprj = Path_Reproj(lake_cart,False)    # Reproj. lake to CORDEX plr. rotated
