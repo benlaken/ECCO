@@ -12,3 +12,5 @@ test_new.ipynb
 test_pic.jpgw
 .directory
 .wget_EUR-11.KNMI_all.sh.status
+Wget_Create/Input/*
+Wget_Create/Output/*
