@@ -4,12 +4,12 @@ import sys
 import glob
 
 
-def gen_script(outfnm,all_script=True):
+def gen_script(infolder,outfnm,all_script=True):
     ''' Module to generate the wget script of specified years, from searching wgets
     within a folder.
     '''
     # Boiler-plate code
-    in_path = 'Input/'
+    in_path = 'Input/'+infolder+'/'
     out_path = 'Output/'
     dep_path = 'Depend/'
     wget_list = glob.glob(in_path+'*.sh')
@@ -18,7 +18,7 @@ def gen_script(outfnm,all_script=True):
     outf = out_path + outfnm
     outgrp = []
     stest_list =['19710101','19760101','20010101','20060101','20310101','20360101',
-                '20710101','20760101','20910101','20960101']
+                '20610101','20660101','20910101','20960101']
 
     # Gather list of files
     print('Reading from the following files:')
@@ -47,6 +47,7 @@ def gen_script(outfnm,all_script=True):
                     #print line,'\n'
                     outgrp.append(line)      # Append the line if matched
         searchfile.close()
+    outgrp = sorted(outgrp)  # Sort the list of variables aphabetically (on variable here)
 
     # Write the script   
     with open(outf,'w') as out_file:
@@ -64,7 +65,7 @@ def gen_script(outfnm,all_script=True):
 
 def main():
     """Main entry point for the script"""
-    print('Please run the function gen_script(output_filename,all_script=True)')
+    print('Please run the function gen_script(inputfolder,output_filename,all_script=True)')
     pass
 
 
