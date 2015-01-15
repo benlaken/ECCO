@@ -18,6 +18,7 @@ import time
 import h5py
 import time as clock
 import osgeo.ogr
+import subprocess
 
 
 
@@ -170,7 +171,8 @@ def Fast_v3(nc_path, lake_file, outputprefix,lstart=0,lstop=275265,
         feature1=0
         lake_feature = 0
 
-    f.close()                                # Close the HDF5 file after the lake loop finishes                
+    f.close()                                # Close the HDF5 file after the lake loop finishes
+    subprocess.call(["gzip", FILE])             # Compress the file and remove original with gzip             
     if rprt == True:
         ctime = clock.time()
     #-------------------------------------------------------------------------------------------
