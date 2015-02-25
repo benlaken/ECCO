@@ -4,22 +4,27 @@ import sys
 import glob
 
 
-def gen_script(infolder,outfnm,all_script=True):
+def gen_script(infolder,outfnm,all_script=True,rcp85=False):
     ''' Module to generate the wget script of specified years, from searching wgets
-    within a folder.
+    within a folder. If rcp85 is True, this function will search the specified folder
+    for a sub-folder called rcp85 and read the wget script within that folder; this
+    will not include the historical runs.
     '''
-    # Boiler-plate code
-    in_path = 'Input/'+infolder+'/'
+    if rcp85 == False:
+        in_path = 'Input/'+infolder+'/'
+        stest_list =['19710101','19760101','20010101','20060101','20310101','20360101',
+                    '20610101','20660101','20910101','20960101']
+    else:
+        in_path = 'Input/'+infolder+'/rcp85/'
+        stest_list =['20060101','20310101','20360101','20610101','20660101','20910101',
+                     '20960101']
+    
     out_path = 'Output/'
     dep_path = 'Depend/'
     wget_list = glob.glob(in_path+'*.sh')
     add_path = '/work/users/blaken/ECCO/CORDEX/Data_CORDEX/'
-    #outf = out_path + 'test.sh'
     outf = out_path + outfnm
     outgrp = []
-    stest_list =['19710101','19760101','20010101','20060101','20310101','20360101',
-                '20610101','20660101','20910101','20960101']
-
     # Gather list of files
     print('Reading from the following files:')
     for n in wget_list:
@@ -65,7 +70,7 @@ def gen_script(infolder,outfnm,all_script=True):
 
 def main():
     """Main entry point for the script"""
-    print('Please run the function gen_script(inputfolder,output_filename,all_script=True)')
+    print('Please run the function gen_script(infolder,outfnm,all_script=True,rcp85=False)')
     pass
 
 
