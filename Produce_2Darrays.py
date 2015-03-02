@@ -1,10 +1,9 @@
 from __future__ import print_function,division,generators
 import numpy as np
-import pandas as pd
+import pandas as pd # missing
 import sys
 import h5py
 import datetime as dt
-from IPython.html.widgets import interact
 import numpy as np
 import matplotlib.cm as cm
 import matplotlib.mlab as mlab
@@ -184,11 +183,24 @@ def Seasonality_Historical(datin, seazon=False, monthly=False,historical=True):
 
 
 if __name__ == "__main__":
-	fpth = '/uio/kant/geo-metos-u1/blaken/datadisk/ECCO/Outputs/'
-    file1 = 'Abel_outputs/Lakes_tas_EUR-11_ICHEC-EC-EARTH_rcp45_r1i1p1_KNMI-RACMO22E_v1_day_20910101-20951231.h5'
-    file2 = 'Abel/outputs/Lakes_tas_EUR-11_ICHEC-EC-EARTH_rcp45_r1i1p1_KNMI-RACMO22E_v1_day_20960101-21001231.h5'
-    meta = pd.read_csv('Metadata/Lake_Stats.csv')             # Load Lake Metadata as a pandasd dataframe object 
-    meta.index = meta.Lake_ID                                 # Index the metadata by lake ID's
+    fpth = '/uio/kant/geo-metos-u1/blaken/datadisk/ECCO/Outputs/'
+    #file1 = 'Abel_outputs/Lakes_tas_EUR-11_ICHEC-EC-EARTH_historical_r3i1p1_DMI-HIRHAM5_v1_day_19710101-19751231.h5'
+    #file2 = 'Abel_outputs/Lakes_tas_EUR-11_ICHEC-EC-EARTH_historical_r3i1p1_DMI-HIRHAM5_v1_day_19760101-19801231.h5'
+
+    #file1  = 'Abel_outputs/Lakes_tas_EUR-11_ICHEC-EC-EARTH_historical_r3i1p1_DMI-HIRHAM5_v1_day_20010101-20051231.h5'
+    #file2  = 'Abel_outputs/Lakes_tas_EUR-11_ICHEC-EC-EARTH_rcp45_r3i1p1_DMI-HIRHAM5_v1_day_20060101-20101231.h5'
+
+    #file1  = 'Abel_outputs/Lakes_tas_EUR-11_ICHEC-EC-EARTH_rcp45_r3i1p1_DMI-HIRHAM5_v1_day_20310101-20351231.h5'
+    #file2  = 'Abel_outputs/Lakes_tas_EUR-11_ICHEC-EC-EARTH_rcp45_r3i1p1_DMI-HIRHAM5_v1_day_20360101-20401231.h5'
+
+    #file1  = 'Abel_outputs/Lakes_tas_EUR-11_ICHEC-EC-EARTH_rcp45_r3i1p1_DMI-HIRHAM5_v1_day_20610101-20651231.h5'
+    #file2  = 'Abel_outputs/Lakes_tas_EUR-11_ICHEC-EC-EARTH_rcp45_r3i1p1_DMI-HIRHAM5_v1_day_20660101-20701231.h5'
+
+    file1  = 'Abel_outputs/Lakes_tas_EUR-11_ICHEC-EC-EARTH_rcp45_r3i1p1_DMI-HIRHAM5_v1_day_20910101-20951231.h5'
+    file2  = 'Abel_outputs/Lakes_tas_EUR-11_ICHEC-EC-EARTH_rcp45_r3i1p1_DMI-HIRHAM5_v1_day_20960101-21001231.h5'
+
+    meta = pd.read_csv('Metadata/Lake_Stats.csv')              # Load Lake Metadata as a pandasd dataframe object 
+    meta.index = meta.Lake_ID                                  # Index the metadata by lake ID's
     single_lakes = np.load('Metadata/single_pixel_lakeid.npy') # Open the lake id metdatada of the single pixel lake id's
     f1 = h5py.File(fpth+file1, "r") 
     f2 = h5py.File(fpth+file2, "r")
@@ -198,8 +210,8 @@ if __name__ == "__main__":
     dts2 = list(gen_timelist(fmeta2['dates'])) 
     dts_comb = dts1+ dts2
     # Historical decade (needed to calculate anomalies)
-    hfile1 = 'Abel_outputs/tmp_data/Lakes_tas_EUR-11_ICHEC-EC-EARTH_historical_r1i1p1_KNMI-RACMO22E_v1_day_19710101-19751231.h5'
-    hfile2 ='Abel_outputs/tmp_data/Lakes_tas_EUR-11_ICHEC-EC-EARTH_historical_r1i1p1_KNMI-RACMO22E_v1_day_19760101-19801231.h5'
+    hfile1 = 'Abel_outputs/Lakes_tas_EUR-11_ICHEC-EC-EARTH_historical_r3i1p1_DMI-HIRHAM5_v1_day_19710101-19751231.h5'
+    hfile2 ='Abel_outputs/Lakes_tas_EUR-11_ICHEC-EC-EARTH_historical_r3i1p1_DMI-HIRHAM5_v1_day_19760101-19801231.h5'
     hf1 = h5py.File(fpth+hfile1, "r") 
     hf2 = h5py.File(fpth+hfile2, "r")
     hfmeta1 = get_CORDEXmeta_from_fnm(hfile1)
@@ -208,10 +220,11 @@ if __name__ == "__main__":
     histdts2 = list(gen_timelist(hfmeta2['dates']))
     histdts_comb = histdts1+ histdts2
     # Create list of df objects and anomaly against historical (4hr for 8k)
-    lake_dics = Gen_df_list(file1,file2,single_lakes[0:2])  
-    yvals,histxvals,xvals = fromID_Gen2DInput(single_lakes[0:5],kind='hist_anom')
+    lake_dics = Gen_df_list(file1,file2,single_lakes[0:2])
+    yvals,histxvals,xvals = fromID_Gen2DInput(single_lakes[0:],kind='hist_anom')  
     zout = calc_density(yvals=yvals,histxvals=histxvals,lake_eg=lake_dics[0])
     outfnm='Hist2D_'+fmeta1['variable']+'_'+fmeta1['dates']+'_'+fmeta1['GCM']
     np.save(fpth+'Sverdrup_outputs/'+outfnm,zout)
     #plt.imshow(zout[0])
     print('Finished')
+    #plt.show()
