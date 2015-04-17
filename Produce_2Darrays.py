@@ -1,6 +1,6 @@
 from __future__ import print_function,division,generators
 import numpy as np
-import pandas as pd # missing
+import pandas as pd
 import sys
 import h5py
 import datetime as dt
@@ -40,9 +40,11 @@ def fromID_Gen2DInput(lakeids,kind='abs'):
     yvals=[]
     histxvals=[]
     xvals=[]
+    print("")
     for n,lakeid in enumerate(lakeids):
-        status(n,len(lakeids)-1, bar_length=40)
-       #(n=None,tmp_dts=dts_comb,f1=f1,f2=f2)
+        #status(n,len(lakeids)-1, bar_length=40)
+        print("Progress:{0:6.2f}%, Lake:{1}, Index:{2}".format(n/len(lakeids)*100,lakeid,n))
+        #(n=None,tmp_dts=dts_comb,f1=f1,f2=f2)
         tmp_lake = read_fast(n=lakeid,tmp_dts=dts_comb,f1=f1,f2=f2)
         if kind == 'abs':     
             yvals += list(tmp_lake.values.flatten())
@@ -183,9 +185,10 @@ def Seasonality_Historical(datin, seazon=False, monthly=False,historical=True):
 
 
 if __name__ == "__main__":
-    fpth = '/uio/kant/geo-metos-u1/blaken/datadisk/ECCO/Outputs/'
-    #file1 = 'Abel_outputs/Lakes_tas_EUR-11_ICHEC-EC-EARTH_historical_r3i1p1_DMI-HIRHAM5_v1_day_19710101-19751231.h5'
-    #file2 = 'Abel_outputs/Lakes_tas_EUR-11_ICHEC-EC-EARTH_historical_r3i1p1_DMI-HIRHAM5_v1_day_19760101-19801231.h5'
+    #fpth = '/uio/kant/geo-metos-u1/blaken/datadisk/ECCO/Outputs/'
+    fpth = 'Outputs/tmp_data/'
+    file1 = 'Abel_outputs/Lakes_tas_EUR-11_ICHEC-EC-EARTH_historical_r3i1p1_DMI-HIRHAM5_v1_day_19710101-19751231.h5'
+    file2 = 'Abel_outputs/Lakes_tas_EUR-11_ICHEC-EC-EARTH_historical_r3i1p1_DMI-HIRHAM5_v1_day_19760101-19801231.h5'
 
     #file1  = 'Abel_outputs/Lakes_tas_EUR-11_ICHEC-EC-EARTH_historical_r3i1p1_DMI-HIRHAM5_v1_day_20010101-20051231.h5'
     #file2  = 'Abel_outputs/Lakes_tas_EUR-11_ICHEC-EC-EARTH_rcp45_r3i1p1_DMI-HIRHAM5_v1_day_20060101-20101231.h5'
@@ -196,8 +199,8 @@ if __name__ == "__main__":
     #file1  = 'Abel_outputs/Lakes_tas_EUR-11_ICHEC-EC-EARTH_rcp45_r3i1p1_DMI-HIRHAM5_v1_day_20610101-20651231.h5'
     #file2  = 'Abel_outputs/Lakes_tas_EUR-11_ICHEC-EC-EARTH_rcp45_r3i1p1_DMI-HIRHAM5_v1_day_20660101-20701231.h5'
 
-    file1  = 'Abel_outputs/Lakes_tas_EUR-11_ICHEC-EC-EARTH_rcp45_r3i1p1_DMI-HIRHAM5_v1_day_20910101-20951231.h5'
-    file2  = 'Abel_outputs/Lakes_tas_EUR-11_ICHEC-EC-EARTH_rcp45_r3i1p1_DMI-HIRHAM5_v1_day_20960101-21001231.h5'
+    #file1  = 'Abel_outputs/Lakes_tas_EUR-11_ICHEC-EC-EARTH_rcp45_r3i1p1_DMI-HIRHAM5_v1_day_20910101-20951231.h5'
+    #file2  = 'Abel_outputs/Lakes_tas_EUR-11_ICHEC-EC-EARTH_rcp45_r3i1p1_DMI-HIRHAM5_v1_day_20960101-21001231.h5'
 
     meta = pd.read_csv('Metadata/Lake_Stats.csv')              # Load Lake Metadata as a pandasd dataframe object 
     meta.index = meta.Lake_ID                                  # Index the metadata by lake ID's
