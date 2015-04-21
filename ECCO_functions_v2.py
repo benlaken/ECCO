@@ -1,6 +1,7 @@
 import numpy as np
 import sys
 import json
+import simplejson
 import pandas as pd
 from netCDF4 import Dataset
 from netCDF4 import num2date, date2num
@@ -412,12 +413,6 @@ def MT_Gen_SWeights(nc_path, lake_file, lake_num, outputprefix, threeD=True,
 
 
 
-
-
-
-
-
-
 def Weight_Speedup(nc_path, lake_file, lake_num, outputprefix,
                        tt=None,plots = False,rprt_tme=False):
     '''Purpose             
@@ -456,19 +451,6 @@ def Weight_Speedup(nc_path, lake_file, lake_num, outputprefix,
     print 'Generated ',EB_id[2:],' in ',clock.time()-a
 
     return
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 #
@@ -512,6 +494,19 @@ def Read_LakesV2(file_in):
     '''
     with open(file_in) as f:
         data = json.load(f)
+    EB_id = [feature['properties']['EBhex'] for feature in data['features']]
+    lake_path = [feature['geometry']['coordinates'] for feature in data['features']]
+    lake_altitude = [feature['properties']['vfp_mean'] for feature in data['features']]
+
+    return EB_id, lake_path, lake_altitude 
+
+def Read_LakesV3(file_in):
+    '''Purpose - Use Json module to read GeoJSON Lake data (ran into trouble with v2)
+    Input   - File name including path (string)
+    Output  - Various arrays containing Lake data
+    '''
+    with open(file_in) as f:
+        data = simplejson.loads(f)   # diffrence here on the loads
     EB_id = [feature['properties']['EBhex'] for feature in data['features']]
     lake_path = [feature['geometry']['coordinates'] for feature in data['features']]
     lake_altitude = [feature['properties']['vfp_mean'] for feature in data['features']]
@@ -1272,7 +1267,7 @@ def TrimToLake(lake_in,Cdat,rlat,rlon,off,show):
     if show == True:          # (If show is set to True, then make a plot to show what's what)
         fig3 = plt.figure()
         ax1 = fig3.add_subplot(111)
-        patch = patches.PathPatch(lake_rprj, facecolor='#06ebf6', lw=1)
+        patch = patches.PathPatch(lake_in, facecolor='#06ebf6', lw=1)
         ax1.add_patch(patch)      # ADD LAKE
         ax1.set_ylabel('Lat. (Deg. N)')
         ax1.set_xlabel('Lon. (Deg. E)')
@@ -1280,7 +1275,7 @@ def TrimToLake(lake_in,Cdat,rlat,rlon,off,show):
         ax1.imshow(data_sub,interpolation='none', cmap=cm.RdBu,
                    extent=[sub_rlon[0],sub_rlon[-1],sub_rlat[0],sub_rlat[-1]],origin='lower')
         plt.show(fig3)    
-        print shape(data_sub),type(data_sub)
+        print np.shape(data_sub),type(data_sub)
     return data_sub,sub_rlat,sub_rlon
 
 
