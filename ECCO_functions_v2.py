@@ -215,8 +215,6 @@ def Write_HDF(f,EB_id,tlist,offset,area):
 
 
 
-
-
 def MT_Means_Over_Lake(nc_path, lake_file, lake_num, outputprefix,
                        tt=None,plots = False,rprt_tme=False):
     '''Purpose             This program is the main wrapper to execute the ECCO 
@@ -1434,8 +1432,49 @@ def Weighted_Mean(weight_mask,sub_clim,chatty):
         val_out = val_out + weight_mask[aaa[0][n],aaa[1][n]] * sub_clim[aaa[0][n],aaa[1][n]]
     return val_out
 
+
+
 def Weighted_Mean_3D(weight_mask,all_time_clim,chatty):
     '''Purpose    - Reads in the 2D weight mask (from Pixel_Weights
+    function) and the trimmed data from TrimToLake and returns a
+    weighted mean. This should be iterated for each time-step.
+    This was fixed (27/04/2015) by BAL. There was a bug in the .dot
+    approach that was giving bad values. This requires re-calculating
+    as multi-pixel data is probably wrong...
+    Input    - weight_mask: Pixel weights
+             - all_time_clim: the climate data (lat lon subset)
+             from TrimToLake3D().
+             - chatty: a true or false statement, if true, it will 
+               print some info on the weighting process.
+    Output   - val_out: the weighted mean value
+    '''
+    tvals = weight_mask != 0.   # Indx where weights exist
+    if len(weight_mask[tvals]) < 1:
+        print 'Error, no shape cover identified in weighted mask.'
+        return
+    if chatty:
+        print 'Shape covers',len(weight_mask[tvals]),' pixels'
+        print 'Actual weight values are :',weight_mask[tvals]
+        print 'Pix weight cum. sum (should end as 1.0):',np.cumsum(weight_mask[tvals])
+    wm = weight_mask[tvals].flatten()  # Get a small array of the weight pixels only
+    tmp_series = []
+    
+    # Roll the axis so that from a loop I can pull back all time dimension for each pixl
+    ctemp = np.rollaxis(all_time_clim,2) 
+    ctemp = np.rollaxis(ctemp,2)
+    
+    for n,pix in enumerate(ctemp[tvals,:]):  # For each row (timeseries) of pixel data
+        tmp_series.append(wm[n]*pix)         # append it
+    tmp_series = np.array(tmp_series)
+    time_series = np.sum(tmp_series,axis=0)
+    return time_series
+
+
+def Weighted_Mean_3D_old(weight_mask,all_time_clim,chatty):
+    '''
+    I THINK THIS IS BUGGY - so I created this old version to track 
+    how it used to look. New changes in the non-old version above.
+    Purpose    - Reads in the 2D weight mask (from Pixel_Weights
     function) and the trimmed data from TrimToLake and returns a
     weighted mean. This should be iterated for each time-step.
     Input    - weight_mask: Pixel weights
@@ -1456,7 +1495,6 @@ def Weighted_Mean_3D(weight_mask,all_time_clim,chatty):
     wm = weight_mask.flatten()[aaa]
     val_out = np.dot(d, wm.reshape(len(wm), 1)) ## n_time x n_pixels dot n_pixels x 1
     return val_out
-
 
 
 # VERSION 1: DEPRECIATED!
