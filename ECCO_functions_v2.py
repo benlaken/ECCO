@@ -41,7 +41,7 @@ def Area_Lake_and_Islands(lake_poly):
     area_end = [i for n,i in enumerate(bbb[0])]
     #Seperated paths, pos.0 is the boundary and rest are islands
     sep_paths = [lake_poly.vertices[area_start[n]:area_end[n]] for n,i in enumerate(area_start)]
-    sep_areas = [float(Poly_Area2D(EqArea(sep_paths[n]))) for n in xrange(len(sep_paths))]
+    sep_areas = [(Poly_Area2D_precise(EqArea(sep_paths[n]))) for n in xrange(len(sep_paths))]
     if island_num > 0:
         total = sep_areas[0] - sum(sep_areas[1:])
         #print 'Area minus Islands:',total
@@ -1098,6 +1098,28 @@ def Poly_Area2D(poly):
         v2 = poly[(i+1) % N]
         total += v1[0]*v2[1] - v1[1]*v2[0]
     return '%6.2f'%abs(total/2.)  
+
+
+def Poly_Area2D_precise(poly):
+    '''
+    Updated 29/04/2015 BAL to fix a precision error. But old 
+    function (Poly_Area2D) kept unchanged for rest of code.
+    Purpose - This function implements Green's Theorem to
+    calculate area of a polygon in a 2D co-ordinate system.
+    Input   - A polygon, as the verticies of a Matplotlib.Path 
+    Notes   - More info at http://code.activestate.com/recipes/
+                           578275-2d-polygon-area
+    Join this function with EqArea function to find the area of a
+    lake in km^2.
+    Example - area = Poly_area2D(EqArea(A_Lake_Path.vertices))
+    '''
+    total = 0.0
+    N = len(poly)
+    for i in range(N):
+        v1 = poly[i]
+        v2 = poly[(i+1) % N]
+        total += v1[0]*v2[1] - v1[1]*v2[0]
+    return abs(total/2.) 
 
 
 def Plot_LakeAndData_Save(lake_in,cdat,rlat,rlon,zoom):
