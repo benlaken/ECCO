@@ -605,6 +605,94 @@ def Height_CORDEX():
     return orog
 
 
+def lake_surfaceweights_meta(nc_path,sbar=False):
+    '''
+    Purpose:          
+    This program Generates metadata files used to speed up the final runs.
+    This was forthe lakes (not catchments), and created a metadata text
+    file, to be used as a mini-database in pandas.
+    This is the second version if of a program to generate lake surface 
+    weights and metadata. This was made after the program to do the same
+    for the catchments. This creates hdf5 weight file, and .csv metadata.
+    '''
+        
+    clim_dat,rlat,rlon,time,metadata,txtfname = Read_CORDEX_V2(nc_path)
+    vname, m1, m2, dexp, m3, m4, m5, m6, drange_orignial = metadata 
+ 
+    var_type = clim_dat.standard_name       # What kind of CORDEX data?
+    dat_loaded = clim_dat[0,:,:]            # Load CORDEX data into RAM
+    print np.shape(dat_loaded)
+    rlat_loaded = rlat[:]
+    rlon_loaded = rlon[:]
+
+    lake_file = 'Lakes/ecco-biwa_lakes_v.0.2.shp'
+    
+    thefilename = 'lake_weights'
+    FILE= 'Lakes/Weights/' + thefilename +'.h5'      # Set up HDF5 file output
+    if os.path.isfile(FILE):
+        #print 'HDF5 File already exists. Dont clobber it by accident.'
+        #print 'Manually decideif you want to remove it.'
+        #return
+        print 'hdf weights file exists, removing it...'
+        os.remove(FILE)
+    else:
+        print 'Creating file: ',FILE
+    fweights = h5py.File(FILE,'w')
+    
+    # set and write header info for the metadata file
+    metacsv = 'Lakes/Metadata/Lake_meta.csv'
+    if os.path.isfile(metacsv) == True:
+        print 'Earlier metadata exists. Erasing it...'
+        os.remove(metacsv)
+    tmplist = ['num','EB_id','area','npix','ypix','xpix'] 
+    write_metadata_csv(mfname=metacsv,meta_list=tmplist)
+    
+    #orog = ECCO.Height_CORDEX()
+    ShapeData = osgeo.ogr.Open(lake_file)
+    TheLayer = ShapeData.GetLayer(iLayer=0)
+    dolakes=range(TheLayer.GetFeatureCount())
+
+    if sbar:
+        icnt = 0
+    
+    for num in dolakes:
+        feature1 = TheLayer.GetFeature(num) 
+        lake_feature = feature1.ExportToJson(as_object=True)
+        lake_cart = Path_LkIsl_ShpFile(lake_feature['geometry']['coordinates']) 
+        EB_id = lake_feature['properties']['EBhex'][2:]
+        lake_altitude=lake_feature['properties']['vfp_mean']
+
+        lake_rprj = Path_Reproj(lake_cart,False)
+
+        sub_clim,sub_rlat,sub_rlon = TrimToLake(lake_rprj,dat_loaded,rlat_loaded,
+                                                        rlon_loaded,off = 3, show = False) 
+        weight_mask = Pixel_Weights(lake_rprj,sub_clim,sub_rlat,sub_rlon)
+
+        pix_truth = (weight_mask > 0.0)      # Count how many 
+        pxnum = len(weight_mask[pix_truth])  #  pixels of data are needed.
+    
+        ypix = -99
+        xpix = -99
+        if pxnum == 1:
+            xxx,yyy = Get_LatLonLim(lake_rprj.vertices)  # Find upp./low.lake lims.
+            ypix = (Closest(rlat,yyy[0]))                # For lakes of one pixel  
+            xpix = (Closest(rlon,xxx[0]))
+        if pxnum < 1:
+            pxnum = 1  # Small bug where it thinks lakes dont exist, no biggy...
+        if pxnum > 1:
+            Write_HDF_weights(fw=fweights,EB_id=EB_id,weights=weight_mask) 
+        
+        tmpmeta =[num,EB_id, Area_Lake_and_Islands(lake_cart),pxnum,ypix,xpix]
+        write_metadata_csv(mfname=metacsv,meta_list=tmpmeta)
+        
+        if sbar:
+            icnt=icnt+1
+            if (float(icnt) % 10.) == 0.0:
+                Update_Progress(float(icnt)/float(len(dolakes)-1.))
+    fweights.close()
+    return 
+
+
 def MT_Means_Over_Lake(nc_path, lake_file, lake_num, outputprefix,
                        tt=None,plots = False,rprt_tme=False):
     '''Purpose             
