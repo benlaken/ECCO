@@ -810,13 +810,14 @@ def MT_Means_Over_Lake(nc_path, lake_file, lake_num, outputprefix,
 
 
 
-def MT_Gen_SWeights(nc_path, lake_file, lake_num, outputprefix, threeD=True,
+def MT_Gen_SWeights_old(nc_path, lake_file, lake_num, outputprefix, threeD=True,
                        tt=None,rprt_tme=False):
     '''
     Purpose:          
     This program Generates metadata files used to speed up the final runs.
     This was forthe lakes (not catchments), and created a metadata text
     file, to be used as a mini-database in pandas.
+    Now replaced by lake_surfaceweights_meta()
     '''
     estart = clock.time()
     if rprt_tme == True:
