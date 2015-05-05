@@ -187,6 +187,7 @@ def catchment_timeseries(nc_path, outputprefix,plots = False,rprt=False,sbar=Fal
                 #plt.show()
             elif catch_meta.npix[EB_id] > 1:
                 weight_mask = get_catchweight(tmp_ebid=EB_id)  # Get the catchment weights from precalc file
+                weight_mask /= weight_mask.sum()  # Make sure weights equal 1.0 exactly
                 # If you were to calculate the weighted mask again you can do it from this...
                 # weight_mask = ECCO.Pixel_Weights(lake_in=lake_rprj,datin=sub_clim,
                 #                                 lat_atts=sub_rlat,lon_atts=sub_rlon)
@@ -449,7 +450,8 @@ def Fast_v4(nc_path, lake_file, outputprefix,lstart=0,lstop=275265,
             with h5py.File('Lakes/Weights/lake_weights.h5','r') as fp:
                 tmparray = fp[EB_id]
                 weight_mask = tmparray[:,:]      # Load the precalculated weight data
-            
+                weight_mask /= weight_mask.sum() # Make sure weights equal 1.0 exactly
+
             sub_clim,sub_rlat,sub_rlon = TrimToLake3D(lake_rprj,dat_loaded,rlat_loaded,
                                                       rlon_loaded,
                                                       off = 3, show = False)
