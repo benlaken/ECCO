@@ -122,7 +122,7 @@ def catchment_timeseries(nc_path, outputprefix,plots = False,rprt=False,sbar=Fal
     if rprt:
         atime = time.time()
     
-    clim_dat,rlat,rlon,timeCDX,metadata,txtfname = ECCO.Read_CORDEX_V2(nc_path) # CORDEX NetCDF Read file
+    clim_dat,rlat,rlon,timeCDX,metadata,txtfname = Read_CORDEX_V2(nc_path) # CORDEX NetCDF Read file
     vname, m1, m2, dexp, m3, m4, m5, m6, drange_orignial = metadata        # Metadata of fname string
     var_type = clim_dat.standard_name                                      # What kind of CORDEX data?
     dat_loaded = clim_dat[:,:,:]                                           # Load CORDEX data into RAM
@@ -170,12 +170,12 @@ def catchment_timeseries(nc_path, outputprefix,plots = False,rprt=False,sbar=Fal
             EB_id = hex(int(lake_feature['properties']['ebint']))[2:]# Extract id number
             wgs85_xy = Reproj_Catchment(lake_feature=lake_feature,
                                        chatty=False)                  # Convert to WGS system
-            lake_cart = ECCO.Path_LkIsl_ShpFile([wgs85_xy])          # Create shape object
-            lake_rprj = ECCO.Path_Reproj(lake_cart,False)            # Reproj 2 Plr rotated
+            lake_cart = Path_LkIsl_ShpFile([wgs85_xy])          # Create shape object
+            lake_rprj = Path_Reproj(lake_cart,False)            # Reproj 2 Plr rotated
                     
             if plots:     
-                ECCO.Preview_Lake(lake_cart)        
-                print 'Area in km^2 (not inc. islands):',ECCO.Area_Lake_and_Islands(lake_poly=lake_cart)         
+                Preview_Lake(lake_cart)        
+                print 'Area in km^2 (not inc. islands):',Area_Lake_and_Islands(lake_poly=lake_cart)         
                 print ', No. xy bound. points:',len(lake_cart.vertices)
             
             if catch_meta.npix[EB_id] == 1:
@@ -194,23 +194,23 @@ def catchment_timeseries(nc_path, outputprefix,plots = False,rprt=False,sbar=Fal
                 
                 #plt.imshow(weight_mask,interpolation='none',cmap=plt.cm.gray,origin='lower')
             
-                sub_clim,sub_rlat,sub_rlon = ECCO.TrimToLake3D(lake_rprj,dat_loaded,rlat_loaded,rlon_loaded,
+                sub_clim,sub_rlat,sub_rlon = TrimToLake3D(lake_rprj,dat_loaded,rlat_loaded,rlon_loaded,
                                                       off = 3, show = False)
                 
                 #print 'More pixels check:',EB_id,catch_meta.npix[EB_id]
-                tlist = ECCO.Weighted_Mean_3D(weight_mask=weight_mask,all_time_clim=sub_clim,chatty=False)
+                tlist = Weighted_Mean_3D(weight_mask=weight_mask,all_time_clim=sub_clim,chatty=False)
                 #tlist2 = ECCO.Weighted_Mean_3D_old(weight_mask=weight_mask,all_time_clim=sub_clim,chatty=False)       
                 #plt.plot(tlist-273.15,tlist2-273.15alpha=0.4)  # shows old vs new weighting func to test if 
                 #plt.show() # that was a potential error source. Seems like it is fine.          
                 
             if plots:
-                ECCO.Show_LakeAndData(lake_rprj,dat_loaded[0,:,:],rlat,rlon,zoom=6.)
-                ECCO.Preview_Weights(lake_rprj,weight_mask,sub_rlat,sub_rlon) 
+                Show_LakeAndData(lake_rprj,dat_loaded[0,:,:],rlat,rlon,zoom=6.)
+                Preview_Weights(lake_rprj,weight_mask,sub_rlat,sub_rlon) 
             
             if sbar:
                 icnt=icnt+1
                 if (float(icnt) % 10.) == 0.0:
-                    ECCO.Update_Progress(float(icnt)/(tot_shapes-1.0))
+                    Update_Progress(float(icnt)/(tot_shapes-1.0))
                     
             write_hdf_catchment(fw=f,EB_id=EB_id,tseries=tlist)  #Write timeseries data to HDF file
             # Loop of n (all features)
