@@ -144,9 +144,9 @@ def catchment_timeseries(nc_path, outputprefix,plots = False,rprt=False,sbar=Fal
     catch_meta = pd.read_csv('Catchments/Metadata/Catchment_meta.csv') # Metadata
     catch_meta = catch_meta.set_index('EB_id')              # Hex code is used as id
     
-    lake_file='Catchments/ecco_biwa_catchments_part_1.shp'  # just for testing...
-    ShapeData = osgeo.ogr.Open(lake_file)                   # Connection to catchment shapes
-    TheLayer = ShapeData.GetLayer(iLayer=0)
+    #lake_file='Catchments/ecco_biwa_catchments_part_1.shp'  # just for testing...
+    #ShapeData = osgeo.ogr.Open(lake_file)                   # Connection to catchment shapes
+    #TheLayer = ShapeData.GetLayer(iLayer=0)
         
     if rprt:
         btime = time.time()
