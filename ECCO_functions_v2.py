@@ -118,6 +118,7 @@ def catchment_timeseries(nc_path, outputprefix,plots = False,rprt=False,sbar=Fal
     These files can be obtained from http://www.files.benlaken.com/documents/
     and are Catchment_meta.csv and catchment_weights.h5.
     '''
+    import pyproj
     # Section for loading of data and opening of an output file
     if rprt:
         atime = time.time()
@@ -230,6 +231,7 @@ def Catchment_Weights_Meta(nc_path,sbar=False):
     From catchment data, generate surface weights if requested, and meta
     data files also.
     '''
+    import pyproj
     # 1. LOAD Climate DATA
     clim_dat,rlat,rlon,timeCDX,metadata,txtfname = Read_CORDEX_V2(nc_path) # CORDEX NetCDF Read file
     vname, m1, m2, dexp, m3, m4, m5, m6, drange_orignial = metadata        # Metadata of fname string
